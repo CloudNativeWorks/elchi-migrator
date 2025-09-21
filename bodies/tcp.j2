@@ -1,0 +1,35 @@
+{
+    "general":
+    {
+        "name": "{{tcp_name}}",
+        "version": "{{version}}",
+        "type": "network_filter",
+        "gtype": "envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
+        "project": "{{project}}",
+        "canonical_name": "envoy.filters.network.tcp_proxy",
+        "metadata":
+        {},
+        "category": "envoy.filters.network",
+        "permissions":
+        {
+            "users":
+            [],
+            "groups":
+            []
+        },
+        "config_discovery":
+        [],
+        "collection": "filters",
+        "elchi_discovery":
+        []
+    },
+    "resource":
+    {
+        "resource":
+        {
+            "stat_prefix": "{{stat_prefix}}",
+            "cluster": "{{cluster_name}}"
+        },
+        "version": "1"
+    }
+}

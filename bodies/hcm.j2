@@ -1,0 +1,108 @@
+{
+    "general":
+    {
+        "name": "{{hcm_name}}",
+        "version": "{{version}}",
+        "type": "network_filter",
+        "gtype": "envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+        "project": "{{project}}",
+        "canonical_name": "envoy.filters.network.http_connection_manager",
+        "metadata":
+        {},
+        "category": "envoy.filters.network",
+        "permissions":
+        {
+            "users":
+            [],
+            "groups":
+            []
+        },
+        "config_discovery":
+        [
+            {
+                "name": "default-router",
+                "gtype": "envoy.extensions.filters.http.router.v3.Router",
+                "priority": 0,
+                "category": "envoy.filters.http",
+                "canonical_name": "envoy.filters.http.router",
+                "collection": "filters",
+                "type": "http_filter",
+                "parent_name": "default-router"
+            }
+        ],
+        "collection": "filters",
+        "elchi_discovery":
+        []
+    },
+    "resource":
+    {
+        "resource":
+        {
+            "codec_type": "AUTO",
+            "stat_prefix": "{{stat_prefix}}",
+            "rds":
+            {
+                "config_source":
+                {
+                    "ads":
+                    {},
+                    "initial_fetch_timeout": "2.0s",
+                    "resource_api_version": "V3"
+                },
+                "route_config_name": "{{route_config_name}}"
+            },
+            "http_filters":
+            [
+                {
+                    "name": "default-router",
+                    "config_discovery":
+                    {
+                        "config_source":
+                        {
+                            "ads":
+                            {},
+                            "initial_fetch_timeout": "2.0s",
+                            "resource_api_version": "V3"
+                        },
+                        "type_urls":
+                        [
+                            "envoy.extensions.filters.http.router.v3.Router"
+                        ]
+                    },
+                    "is_optional": false,
+                    "disabled": false
+                }
+            ],
+            "server_name": "elchi",
+            "max_request_headers_kb": 60,
+            "access_log":
+            [
+                {
+                    "name": "envoy.access_loggers.stdout",
+                    "filter":
+                    {
+                        "status_code_filter":
+                        {
+                            "comparison":
+                            {
+                                "op": "GE",
+                                "value":
+                                {
+                                    "default_value": 400,
+                                    "runtime_key": "filtercode"
+                                }
+                            }
+                        }
+                    },
+                    "typed_config":
+                    {
+                        "type_url": "envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                        "value": "{{stdout_access_log_base64}}"
+                    }
+                }
+            ],
+            "use_remote_address": true
+        },
+        "version": "1"
+    }
+}

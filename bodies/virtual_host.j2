@@ -1,0 +1,54 @@
+{
+    "general":
+    {
+        "name": "{{vhost_name}}",
+        "version": "{{version}}",
+        "type": "virtual_host",
+        "gtype": "envoy.config.route.v3.VirtualHost",
+        "project": "{{project}}",
+        "canonical_name": "config.route.v3.VirtualHost",
+        "metadata":
+        {},
+        "category": "virtual_host",
+        "permissions":
+        {
+            "users":
+            [],
+            "groups":
+            []
+        },
+        "config_discovery":
+        [],
+        "collection": "virtual_hosts",
+        "elchi_discovery":
+        []
+    },
+    "resource":
+    {
+        "resource":
+        [
+            {
+                "name": "{{vhost_name}}",
+                "domains":
+                [
+                    "*"
+                ],
+                "routes":
+                [
+                    {
+                        "name": "default_route",
+                        "match":
+                        {
+                            "prefix": "/"
+                        },
+                        "route":
+                        {
+                            "cluster": "{{cluster_name}}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "version": "1"
+    }
+}

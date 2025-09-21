@@ -1,0 +1,555 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.navbar {
+    background-color: #2c3e50;
+    color: white;
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar h1 {
+    font-size: 1.5rem;
+    display: inline-block;
+}
+
+.nav-info {
+    float: right;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+main {
+    margin-top: 2rem;
+    min-height: calc(100vh - 100px);
+}
+
+/* Login Form */
+.login-container {
+    max-width: 400px;
+    margin: 4rem auto;
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.login-container h2 {
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Buttons */
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+/* Error Messages */
+.error-message {
+    background-color: #e74c3c;
+    color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+/* VServers Page */
+.vservers-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-actions h2 {
+    color: #2c3e50;
+}
+
+.actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.loading {
+    text-align: center;
+    padding: 2rem;
+    color: #7f8c8d;
+}
+
+.stats {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+}
+
+.stats span {
+    color: #7f8c8d;
+}
+
+.stats strong {
+    color: #2c3e50;
+}
+
+/* Table */
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table thead {
+    background-color: #34495e;
+    color: white;
+}
+
+table th {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid #ecf0f1;
+    font-size: 0.85rem;
+}
+
+table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.ip-address {
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+/* Badges */
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.badge-lb {
+    background-color: #3498db;
+    color: white;
+}
+
+.badge-cs {
+    background-color: #9b59b6;
+    color: white;
+}
+
+/* State Indicators */
+.state {
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.state-up {
+    background-color: #27ae60;
+    color: white;
+}
+
+.state-down {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.state-unknown {
+    background-color: #95a5a6;
+    color: white;
+}
+
+/* Links */
+.vserver-link {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.vserver-link:hover {
+    text-decoration: underline;
+    color: #2980b9;
+}
+
+/* Request Stats */
+.request-stats {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.85rem;
+}
+
+/* Domains */
+.domains-cell {
+    max-width: 180px;
+    word-wrap: break-word;
+    font-size: 0.8rem;
+    line-height: 1.2;
+}
+
+.domain-name {
+    color: #27ae60;
+    font-weight: 500;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+}
+
+.no-domains {
+    color: #95a5a6;
+    font-style: italic;
+}
+
+.domain-count {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+/* Policy specific styles */
+.policy-name {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #9b59b6;
+}
+
+.policy-rule {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    background-color: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    max-width: 300px;
+    word-break: break-word;
+}
+
+/* Cluster styles */
+.cluster-names {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Domain styles */
+.domain-names {
+    flex-wrap: wrap;
+    gap: 0;
+    line-height: 1.6;
+}
+
+.domains-grid {
+    display: flex;
+    gap: 1rem;
+    max-width: 100%;
+    align-items: flex-start;
+}
+
+.domain-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .domains-grid {
+        flex-direction: column;
+    }
+}
+
+.domain-wrapper {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+}
+
+.copy-btn {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    border-radius: 3px;
+    padding: 0.2rem 0.4rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.copy-btn-small {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    padding: 0.1rem 0.3rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: #495057;
+    transition: background-color 0.2s;
+}
+
+.copy-btn-small:hover {
+    background: #dee2e6;
+}
+
+.cluster-badge {
+    background-color: #17a2b8;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: 'Courier New', monospace;
+}
+
+.domain-badge {
+    background-color: #28a745;
+    color: white;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 400;
+    font-family: 'Courier New', monospace;
+    display: inline-block;
+    word-break: break-all;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+/* Login Controls in Navbar */
+.navbar .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1rem;
+}
+
+.nav-link {
+    color: #ecf0f1;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.nav-link.active {
+    background-color: #3498db;
+    color: white;
+    font-weight: 600;
+}
+
+.login-controls {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.login-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.login-label {
+    color: #ecf0f1;
+    font-size: 0.9rem;
+}
+
+.status-connected {
+    color: #2ecc71;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.status-disconnected {
+    color: #e74c3c;
+    font-size: 0.9rem;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto;
+    padding: 2rem;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    position: relative;
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+.close {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: #000;
+}
+
+.btn.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Bootstrap Tab Styling Improvements */
+.nav-tabs .nav-link {
+    color: #495057 !important;
+    font-weight: 500;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    margin-right: 2px;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #0056b3 !important;
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0056b3 !important;
+    background-color: #fff;
+    border-color: #dee2e6 #dee2e6 #fff;
+    font-weight: 600;
+}
+
+.nav-tabs .nav-link:not(.active) {
+    opacity: 1;
+    color: #495057 !important;
+    background-color: #f8f9fa;
+}
+
+.nav-tabs .nav-link:not(.active):hover {
+    color: #0056b3 !important;
+    background-color: #e9ecef;
+}

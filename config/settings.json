@@ -1,0 +1,14 @@
+{
+  "description": "Settings configuration for NetScaler virtual servers",
+  "filters": {
+    "exclude_ips": [],
+    "exclude_ip_ranges": [],
+    "ip_filter_type": "private",
+    "custom_rules": {
+      "description": "Additional custom filtering rules",
+      "exclude_patterns": []
+    }
+  },
+  "known_suffixes": [],
+  "last_updated": "2025-09-19T08:28:12.956279Z"
+}

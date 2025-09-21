@@ -1,0 +1,43 @@
+{
+    "general":
+    {
+        "name": "{{clustername_port}}",
+        "version": "{{version}}",
+        "type": "endpoint",
+        "gtype": "envoy.config.endpoint.v3.ClusterLoadAssignment",
+        "project": "{{project}}",
+        "canonical_name": "config.endpoint.v3.Endpoint",
+        "metadata":
+        {},
+        "category": "endpoint",
+        "permissions":
+        {
+            "users":
+            [],
+            "groups":
+            []
+        },
+        "config_discovery":
+        [],
+        "collection": "endpoints",
+        "elchi_discovery":
+        []
+    },
+    "resource":
+    {
+        "resource":
+        {
+            "cluster_name": "{{clustername_port}}",
+            "endpoints":
+            [
+                {
+                    "lb_endpoints":
+                    [
+                        {{ip_port_endpoints}}
+                    ]
+                }
+            ]
+        },
+        "version": "1"
+    }
+}

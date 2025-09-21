@@ -1,0 +1,73 @@
+{
+    "general":
+    {
+        "name": "{{route_name}}",
+        "version": "{{version}}",
+        "type": "route",
+        "gtype": "envoy.config.route.v3.RouteConfiguration",
+        "project": "{{project}}",
+        "canonical_name": "config.route.v3.RouteConfiguration",
+        "metadata":
+        {},
+        "category": "route",
+        "permissions":
+        {
+            "users":
+            [],
+            "groups":
+            []
+        },
+        "config_discovery":
+        [
+            {
+                "name": "{{vhost_name}}",
+                "gtype": "envoy.config.route.v3.VirtualHost",
+                "priority": 0,
+                "category": "vhds",
+                "canonical_name": "config.route.v3.VirtualHost",
+                "parent_name": "{{route_name}}"
+            }
+        ],
+        "collection": "routes",
+        "elchi_discovery":
+        []
+    },
+    "resource":
+    {
+        "resource":
+        {
+            "name": "{{route_name}}",
+            "vhds":
+            {
+                "config_source":
+                {
+                    "api_config_source":
+                    {
+                        "api_type": "DELTA_GRPC",
+                        "transport_api_version": "V3",
+                        "grpc_services":
+                        [
+                            {
+                                "envoy_grpc":
+                                {
+                                    "cluster_name": "elchi-control-plane"
+                                },
+                                "timeout": "5.0s",
+                                "initial_metadata":
+                                [
+                                    {
+                                        "key": "nodeid",
+                                        "value": "__NODEID__"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "initial_fetch_timeout": "2.0s",
+                    "resource_api_version": "V3"
+                }
+            }
+        },
+        "version": "1"
+    }
+}

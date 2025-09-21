@@ -1,0 +1,1 @@
+{"name":"default-aclog-stdout","canonical_name":"envoy.access_loggers.stdout","gtype":"envoy.extensions.access_loggers.stream.v3.StdoutAccessLog","type":"access_log","category":"envoy.access_loggers","collection":"extensions","version":"{{version}}"}

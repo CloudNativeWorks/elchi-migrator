@@ -1,0 +1,2869 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vserver_name }} - NetScaler Config Viewer{% endblock %}
+
+{% block content %}
+<div class="vserver-detail-container">
+    <div class="header-actions">
+        <h2>Virtual Server: <span class="vserver-name">{{ vserver_name }}</span></h2>
+        <div class="actions">
+            <a href="{{ url_for('main.vservers') }}" class="btn btn-secondary">Back to List</a>
+            <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+        </div>
+    </div>
+    
+    <div id="loading" class="loading">Loading virtual server details...</div>
+    <div id="error-message" class="error-message" style="display: none;"></div>
+    
+    <!-- Floating Navigation Badges -->
+    <div id="floatingBadges" class="floating-badges" style="display: none;">
+        <!-- Basic Info Badge -->
+        <div id="basicBadge" class="nav-badge basic-badge" data-section="basicInfo"
+             title="Basic Information">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        
+        <!-- Related VServers Badge -->
+        <div id="relatedBadge" class="nav-badge related-badge" data-section="relatedSection" style="display: none;"
+             title="Related Virtual Servers">
+            <i class="fas fa-link"></i>
+            <span class="badge-count" id="relatedCount"></span>
+        </div>
+        
+        <!-- Domain Names Badge -->
+        <div id="domainBadge" class="nav-badge domain-floating-badge" data-section="domainsSection" style="display: none;"
+             title="Domain Names">
+            <i class="fas fa-globe"></i>
+            <span class="badge-count" id="domainCount"></span>
+        </div>
+        
+        <!-- Services Badge (LB only) -->
+        <div id="servicesBadge" class="nav-badge services-badge" data-section="servicesSection" style="display: none;"
+             title="Services">
+            <i class="fas fa-cogs"></i>
+            <span class="badge-count" id="servicesCount"></span>
+        </div>
+        
+        <!-- Service Groups Badge (LB only) -->
+        <div id="servicegroupsBadge" class="nav-badge servicegroups-badge" data-section="servicegroupsSection" style="display: none;"
+             title="Service Groups">
+            <i class="fas fa-layer-group"></i>
+            <span class="badge-count" id="servicegroupsCount"></span>
+        </div>
+        
+        <!-- SSL Certificates Badge -->
+        <div id="sslBadge" class="nav-badge ssl-badge" data-section="sslSection" style="display: none;"
+             title="SSL Certificates">
+            <i class="fas fa-lock"></i>
+            <span class="badge-count" id="sslCount"></span>
+        </div>
+        
+        <!-- Kubernetes Clusters Badge -->
+        <div id="clusterBadge" class="nav-badge cluster-badge" data-section="clustersSection" style="display: none;"
+             title="Kubernetes Clusters">
+            <i class="fas fa-cubes"></i>
+            <span class="badge-count" id="clusterCount"></span>
+        </div>
+        
+        <!-- Default LB Badge (CS only) -->
+        <div id="defaultLBBadge" class="nav-badge default-lb-badge" data-section="defaultLBSection" style="display: none;"
+             title="Default LB VServer">
+            <i class="fas fa-balance-scale"></i>
+        </div>
+        
+        <!-- CS Policies Badge (CS only) -->
+        <div id="policiesBadge" class="nav-badge policies-badge" data-section="policiesSection" style="display: none;"
+             title="Content Switching Policies">
+            <i class="fas fa-random"></i>
+            <span class="badge-count" id="policiesCount"></span>
+        </div>
+        
+        <!-- ELCHI Templates Badge -->
+        <div id="templatesBadge" class="nav-badge templates-badge" data-section="templatesSection" style="display: none;"
+             title="ELCHI Templates">
+            <i class="fas fa-file-code"></i>
+        </div>
+    </div>
+    
+    <div id="detailsContainer" style="display: none;">
+        <!-- Basic Information -->
+        <div class="detail-section">
+            <h3>Basic Information</h3>
+            <div class="info-grid" id="basicInfo"></div>
+        </div>
+
+        <!-- Related VServers (same IP, different protocol/port) -->
+        <div class="detail-section" id="relatedVServersSection" style="display: none;">
+            <h3>Related Virtual Servers</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>VServer Name</th>
+                            <th>Type</th>
+                            <th>Protocol</th>
+                            <th>Port</th>
+                            <th>State</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="relatedVServersBody">
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 1rem; color: #7f8c8d; font-style: italic;">
+                These virtual servers share the same IP address but use different protocols or ports.
+            </p>
+        </div>
+
+        <!-- Domains -->
+        <div class="detail-section" id="domainsSection" style="display: none;">
+            <h3>Domain Names</h3>
+            <div id="domainsContainer">
+                <div class="domain-names" id="domainsList"></div>
+            </div>
+            <p style="margin-top: 1rem; color: #7f8c8d; font-style: italic;">
+                Domain names associated with this virtual server's IP address.
+            </p>
+        </div>
+        
+        <!-- Services -->
+        <div class="detail-section" id="servicesSection" style="display: none;">
+            <h3>Services</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Service Name</th>
+                            <th>IP Address</th>
+                            <th>Port</th>
+                            <th>Type</th>
+                            <th>State</th>
+                            <th>Weight</th>
+                            <th>Cluster</th>
+                        </tr>
+                    </thead>
+                    <tbody id="servicesBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Service Groups -->
+        <div class="detail-section" id="servicegroupsSection" style="display: none;">
+            <h3>Service Groups</h3>
+            <div id="servicegroupsContainer"></div>
+        </div>
+        
+        <!-- SSL Certificates -->
+        <div class="detail-section" id="sslSection" style="display: none;">
+            <h3>SSL Certificates</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Certificate Name</th>
+                            <th>Subject</th>
+                            <th>Issuer</th>
+                            <th>Days to Expiry</th>
+                            <th>Certificate File</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sslBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Kubernetes Clusters -->
+        <div class="detail-section" id="clustersSection" style="display: none;">
+            <h3>Kubernetes Clusters</h3>
+            <div id="clustersContainer">
+                <div class="cluster-groups" id="clusterGroups"></div>
+            </div>
+            <p style="margin-top: 1rem; color: #7f8c8d; font-style: italic;">
+                Backend services are running on these Kubernetes clusters.
+            </p>
+        </div>
+
+        <!-- Default LB VServer (for CS vservers) -->
+        <div class="detail-section" id="defaultLBSection" style="display: none;">
+            <h3>Default LB VServer</h3>
+            <div id="defaultLBContainer"></div>
+        </div>
+
+        <!-- CS Policies (for CS vservers) -->
+        <div class="detail-section" id="policiesSection" style="display: none;">
+            <h3>Content Switching Policies</h3>
+            <div id="policiesContainer"></div>
+        </div>
+        
+
+        <!-- ELCHI Templates Section -->
+        <div class="detail-section" id="elchiSection" style="display: none;">
+            <h3>ELCHI Templates</h3>
+            <div class="elchi-templates">
+                <!-- Template Options -->
+                <div class="template-options" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 1rem; margin-bottom: 1rem;">
+                    <h5 style="margin-bottom: 0.75rem;">Template Options</h5>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 1rem;">
+                        <!-- Version Selection -->
+                        <div class="form-group">
+                            <label for="versionSelect" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Version:</label>
+                            <select id="versionSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                                <option value="v1.35.3" selected>v1.35.3 (Latest)</option>
+                                <option value="v1.35.0">v1.35.0</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Cluster SSL Options -->
+                        <div class="form-group">
+                            <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Cluster SSL:</label>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="clusterSslCheck" style="width: auto;">
+                                <label for="clusterSslCheck">Enable SSL Transport Socket</label>
+                            </div>
+                            <small style="color: #6c757d; font-size: 0.8rem;">Adds TLS context to cluster configuration</small>
+                        </div>
+                        
+                        <!-- Listener Type Options -->
+                        <div class="form-group">
+                            <label for="listenerTypeSelect" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Listener Type:</label>
+                            <select id="listenerTypeSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                                <option value="auto" selected>Auto (Protocol Based)</option>
+                                <option value="http">HTTP Only</option>
+                                <option value="https">HTTPS Only</option>
+                                <option value="both">Both HTTP & HTTPS</option>
+                            </select>
+                            <small style="color: #6c757d; font-size: 0.8rem;">Select listener configuration type</small>
+                        </div>
+                        
+                        <!-- TLS Context Selection -->
+                        <div class="form-group" id="tlsContextGroup" style="display: none;">
+                            <label for="tlsContextSelect" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">TLS Context:</label>
+                            <select id="tlsContextSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                                <option value="">Loading TLS contexts...</option>
+                            </select>
+                            <small style="color: #6c757d; font-size: 0.8rem;">Select downstream TLS context</small>
+                        </div>
+                        
+                        <!-- Address Type Selection -->
+                        <div class="form-group">
+                            <label for="addressTypeSelect" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Address Type:</label>
+                            <select id="addressTypeSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                                <option value="InternalIP" selected>InternalIP</option>
+                                <option value="ExternalIP">ExternalIP</option>
+                            </select>
+                            <small style="color: #6c757d; font-size: 0.8rem;">Select endpoint address type</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Second row for Text Replace -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 3fr; gap: 1rem; margin-top: 1rem;">
+                        <!-- Text Replace From -->
+                        <div class="form-group">
+                            <label for="textReplaceFromInput" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Replace From:</label>
+                            <input type="text" id="textReplaceFromInput" placeholder="_ssl,_prod,test_" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                            <small style="color: #6c757d; font-size: 0.8rem;">Comma-separated text to replace</small>
+                        </div>
+                        
+                        <!-- Text Replace To -->
+                        <div class="form-group">
+                            <label for="textReplaceToInput" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Replace To:</label>
+                            <input type="text" id="textReplaceToInput" placeholder="" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
+                            <small style="color: #6c757d; font-size: 0.8rem;">Replacement text (empty = remove)</small>
+                        </div>
+                        
+                        <!-- Empty space for layout -->
+                        <div></div>
+                    </div>
+                </div>
+                
+                <button id="generateTemplatesBtn" class="btn btn-primary" style="margin-bottom: 1rem;">Generate ELCHI Templates</button>
+                <div id="templatesLoading" class="loading" style="display: none;">Generating templates...</div>
+                <div id="templatesContent" style="display: none;">
+                    <!-- Templates will be dynamically inserted here based on TEMPLATE_ORDER -->
+                </div>
+                
+                <!-- Send to ELCHI Section -->
+                <div id="sendToElchiSection" style="display: none; margin-top: 2rem;">
+                    <div style="border-top: 1px solid #dee2e6; padding-top: 2rem;">
+                        <h4 style="margin-bottom: 1rem;">Send to ELCHI</h4>
+                        <div style="margin-bottom: 1rem;">
+                            <button id="sendToElchiBtn" class="btn btn-success" style="margin-right: 1rem;">
+                                <i class="fas fa-paper-plane"></i> Send All Templates to ELCHI
+                            </button>
+                            <label style="display: inline-flex; align-items: center; margin: 0; font-weight: normal;">
+                                <input type="checkbox" id="ignoreDuplicateCheckbox" style="margin-right: 0.5rem;">
+                                <span>Ignore duplicate resources (force send)</span>
+                            </label>
+                        </div>
+                        <div id="elchiSendLoading" class="loading" style="display: none;">Sending to ELCHI...</div>
+                        <div id="elchiSendResults" style="display: none;">
+                            <!-- Send results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<style>
+.vserver-detail-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.vserver-name {
+    color: #3498db;
+    font-family: 'Courier New', monospace;
+}
+
+.detail-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.detail-section h3 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    padding: 0.5rem 0;
+}
+
+.info-label {
+    font-weight: 600;
+    min-width: 150px;
+    color: #7f8c8d;
+}
+
+.info-value {
+    color: #2c3e50;
+    font-family: 'Courier New', monospace;
+}
+
+.servicegroup-container {
+    margin-bottom: 1.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.servicegroup-header {
+    padding: 1rem;
+    background-color: #34495e;
+    color: white;
+    font-weight: 600;
+}
+
+.servicegroup-members {
+    padding: 1rem;
+    background-color: white;
+}
+
+.member-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid #ecf0f1;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.member-item:last-child {
+    border-bottom: none;
+}
+
+.policy-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    background-color: white;
+}
+
+.policy-header {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 1rem;
+    align-items: center;
+}
+
+.policy-priority {
+    background-color: #007bff;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.policy-name {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #9b59b6;
+}
+
+.policy-target {
+    font-weight: 500;
+}
+
+.policy-bindpoint {
+    background-color: #6c757d;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.policy-rule-full {
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    background-color: #f8f9fa;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+.domain-highlight {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.cert-expiry-warning {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.cert-expiry-ok {
+    color: #28a745;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.domain-item-badge {
+    background: #ffffff;
+    color: #212529;  /* Dark text color */
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    display: inline-block;
+    margin: 0.25rem 0.5rem 0.25rem 0;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+.copy-btn, .copy-btn-small {
+    background: transparent;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    padding: 0.1rem 0.3rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: background-color 0.2s;
+}
+
+.copy-btn:hover, .copy-btn-small:hover {
+    background: #f8f9fa;
+}
+
+.cluster-badge {
+    background: #e9ecef;
+    color: #212529;  /* Dark text color */
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 0.5rem;
+    display: inline-block;
+    margin: 0.25rem 0.5rem 0.25rem 0;
+    font-size: 0.85rem;
+}
+
+/* Badge styles for related vservers */
+.state-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.state-badge.up {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.state-badge.down {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.state-badge.unknown {
+    background-color: #e2e3e5;
+    color: #6c757d;
+    border: 1px solid #d6d8db;
+}
+
+.type-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.type-badge.lb {
+    background-color: #cce5ff;
+    color: #004085;
+    border: 1px solid #99c9ff;
+}
+
+.type-badge.cs {
+    background-color: #ffe6cc;
+    color: #804000;
+    border: 1px solid #ffcc99;
+}
+
+.protocol-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.protocol-badge.http {
+    background-color: #e1f5fe;
+    color: #01579b;
+    border: 1px solid #b3e5fc;
+}
+
+.protocol-badge.https,
+.protocol-badge.ssl,
+.protocol-badge.ssl_bridge {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #c8e6c8;
+}
+
+.protocol-badge.tcp {
+    background-color: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffe0b3;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 1px solid #6c757d;
+    color: #6c757d;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-outline:hover {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Floating Status Badges */
+.floating-badges {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-badge {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 3px solid rgba(255,255,255,0.2);
+}
+
+.status-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.badge-count {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #fff;
+    color: #333;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 16px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 2px solid currentColor;
+}
+
+.ssl-badge {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.ssl-badge:hover {
+    background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+.http-badge {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.http-badge:hover {
+    background: linear-gradient(135deg, #2980b9, #1f618d);
+}
+
+.related-badge {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.related-badge:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+.cluster-badge-float {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+}
+
+.cluster-badge-float:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+}
+
+/* Navigation Badges */
+.nav-badge {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 3px solid rgba(255,255,255,0.2);
+    margin-bottom: 10px;
+}
+
+.nav-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.nav-badge.active {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(255,255,255,0.4);
+    border-color: rgba(255,255,255,0.8);
+}
+
+/* Badge-specific colors */
+.basic-badge {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+/* Domain floating badge - completely separate from domain item badges */
+.domain-floating-badge {
+    background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+    border-radius: 50% !important;
+    width: 50px !important;
+    height: 50px !important;
+}
+
+.services-badge {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+}
+
+.servicegroups-badge {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+/* Old domain badge class for backward compatibility */
+.nav-badge.domain-badge {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+}
+
+.default-lb-badge {
+    background: linear-gradient(135deg, #6f42c1, #563d7c);
+}
+
+.policies-badge {
+    background: linear-gradient(135deg, #fd7e14, #e8650e);
+}
+
+.templates-badge {
+    background: linear-gradient(135deg, #20c997, #18a085);
+}
+
+/* Popover styling */
+.popover {
+    max-width: 300px;
+}
+
+.popover-cert-item,
+.popover-protocol-item,
+.popover-related-item,
+.popover-cluster-item {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.popover-cert-item:last-child,
+.popover-protocol-item:last-child,
+.popover-related-item:last-child,
+.popover-cluster-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.popover-body {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.popover-header {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .floating-badges {
+        right: 10px;
+        gap: 8px;
+    }
+    
+    .status-badge,
+    .nav-badge {
+        width: 40px;
+        height: 40px;
+        font-size: 14px;
+    }
+    
+    .popover {
+        max-width: 250px;
+    }
+}
+
+/* Kubernetes Clusters Styling */
+.cluster-group {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.cluster-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.cluster-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.cluster-ip-count {
+    background: #3498db;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.cluster-ips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.cluster-ip {
+    background: white;
+    border: 1px solid #ced4da;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.cluster-ip:hover {
+    background: #e9ecef;
+    border-color: #3498db;
+}
+</style>
+
+<script>
+const VSERVER_CACHE_KEY = 'netscaler_vserver_details';
+const VSERVER_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
+// Helper function to check auth status in parallel with any API request
+async function checkAuthWithRequest(requestPromise) {
+    // Run both the main request and auth check in parallel
+    const [requestResult, ] = await Promise.allSettled([
+        requestPromise,
+        checkLoginStatus() // This will update UI if auth expired
+    ]);
+    
+    return requestResult;
+}
+
+// Check login status function (simplified version for this page)
+async function checkLoginStatus() {
+    try {
+        // Get current version from UI
+        const versionSelect = document.getElementById('version-select');
+        const version = versionSelect ? versionSelect.value : 'v1.35.3';
+        
+        const elchiResponse = await fetch(`/api/elchi/status?version=${version}`);
+        const elchiData = await elchiResponse.json();
+        
+        if (elchiData.authenticated) {
+            document.getElementById('elchi-status').className = 'status-connected';
+            document.getElementById('elchi-status').textContent = 'Connected';
+            document.getElementById('elchi-login-btn').textContent = 'Logout';
+            document.getElementById('elchi-login-btn').onclick = elchiLogout;
+        } else {
+            document.getElementById('elchi-status').className = 'status-disconnected';
+            document.getElementById('elchi-status').textContent = 'Disconnected';
+            document.getElementById('elchi-login-btn').textContent = 'Login';
+            document.getElementById('elchi-login-btn').onclick = showElchiLogin;
+        }
+    } catch (error) {
+        console.log('ELCHI status check failed');
+        document.getElementById('elchi-status').className = 'status-disconnected';
+        document.getElementById('elchi-status').textContent = 'Disconnected';
+        document.getElementById('elchi-login-btn').textContent = 'Login';
+        document.getElementById('elchi-login-btn').onclick = showElchiLogin;
+    }
+}
+
+function getCachedVServerDetails(vserverName) {
+    try {
+        const cached = localStorage.getItem(VSERVER_CACHE_KEY);
+        if (cached) {
+            const data = JSON.parse(cached);
+            const vserverData = data[vserverName];
+            if (vserverData && (Date.now() - vserverData.timestamp < VSERVER_CACHE_EXPIRY)) {
+                return vserverData.details;
+            }
+        }
+    } catch (e) {
+        console.log('VServer cache read error:', e);
+    }
+    return null;
+}
+
+function setCachedVServerDetails(vserverName, details) {
+    try {
+        let cacheData = {};
+        const cached = localStorage.getItem(VSERVER_CACHE_KEY);
+        if (cached) {
+            cacheData = JSON.parse(cached);
+        }
+        
+        cacheData[vserverName] = {
+            details: details,
+            timestamp: Date.now()
+        };
+        
+        localStorage.setItem(VSERVER_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (e) {
+        console.log('VServer cache write error:', e);
+    }
+}
+
+async function loadVServerDetails(forceRefresh = false) {
+    const loading = document.getElementById('loading');
+    const errorDiv = document.getElementById('error-message');
+    const detailsContainer = document.getElementById('detailsContainer');
+    const vserverName = '{{ vserver_name }}';
+    
+    // Always fetch fresh analysis data (cache disabled for analysis)
+    // if (!forceRefresh) {
+    //     const cached = getCachedVServerDetails(vserverName);
+    //     if (cached) {
+    //         displayAnalysisDetails(cached);
+    //         detailsContainer.style.display = 'block';
+    //         return;
+    //     }
+    // }
+    
+    loading.style.display = 'block';
+    errorDiv.style.display = 'none';
+    detailsContainer.style.display = 'none';
+    
+    try {
+        console.log(`Loading analysis for vserver: ${vserverName}`);
+        const vserverType = '{{ vserver_type }}';
+        
+        // Make the API request with parallel auth check
+        const requestResult = await checkAuthWithRequest(
+            fetch(`/api/analyze-vserver/${vserverType}/${encodeURIComponent(vserverName)}`)
+        );
+        
+        // Extract response from Promise.allSettled result
+        if (requestResult.status === 'rejected') {
+            throw new Error(requestResult.reason?.message || 'Network error');
+        }
+        
+        const response = requestResult.value;
+        const data = await response.json();
+        
+        console.log('API response:', { status: response.status, data });
+        
+        if (response.ok && !data.error) {
+            // Cache the details
+            setCachedVServerDetails(vserverName, data);
+            
+            await displayAnalysisDetails(data);
+            loading.style.display = 'none';
+            detailsContainer.style.display = 'block';
+            
+            // Update TLS context visibility after loading vserver details
+            updateTlsContextVisibility();
+        } else {
+            throw new Error(data.error || 'Failed to load virtual server analysis');
+        }
+    } catch (error) {
+        console.error('Error loading vserver details:', error);
+        loading.style.display = 'none';
+        errorDiv.textContent = 'Error: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+
+async function displayAnalysisDetails(analysis) {
+    // Display basic info
+    const basicInfo = document.getElementById('basicInfo');
+    
+    basicInfo.innerHTML = `
+        <div class="info-item">
+            <span class="info-label">Name:</span>
+            <span class="info-value">${analysis.vserver_name}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Type:</span>
+            <span class="info-value">${analysis.vserver_type}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Protocol:</span>
+            <span class="info-value">${analysis.vserver_protocol || 'N/A'}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">IP Address:</span>
+            <span class="info-value">${analysis.vserver_ip || 'N/A'}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Port:</span>
+            <span class="info-value">${analysis.vserver_port || 'N/A'}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Clustername Port:</span>
+            <span class="info-value">${analysis.clustername_port || 'N/A'}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Cluster Name:</span>
+            <span class="info-value">${analysis.cluster_name || 'N/A'}</span>
+        </div>
+    `;
+    
+    // Update floating badges based on analysis data
+    updateFloatingBadges(analysis);
+    
+    // BUILD CLUSTER MATCHES LOOKUP FIRST - BEFORE ANY DISPLAY
+    // Store cluster matches globally for table access
+    window.clusterMatches = {};
+    if (analysis.cluster_matches && Array.isArray(analysis.cluster_matches) && analysis.cluster_matches.length > 0) {
+        console.log('Building cluster matches lookup from:', analysis.cluster_matches);
+        // Build cluster match lookup
+        analysis.cluster_matches.forEach((match, index) => {
+            // Handle both data formats:
+            // 1. netscaler_client.py format: {cluster_name: "name", ips: ["ip1", "ip2"]}
+            // 2. routes.py format: {cluster_name: "name", ip_port: "ip:port", node_name: "node"}
+            
+            if (match && match.ips && Array.isArray(match.ips)) {
+                // Format 1: netscaler_client.py format (grouped)
+                match.ips.forEach(ip => {
+                    if (ip && match.cluster_name) {
+                        window.clusterMatches[ip] = match.cluster_name;
+                    }
+                });
+            } else if (match && match.ip_port && match.cluster_name) {
+                // Format 2: routes.py format (individual)
+                const ip = match.ip_port.split(':')[0];
+                window.clusterMatches[ip] = match.cluster_name;
+            } else {
+                console.log(`  ✗ Invalid match structure:`, match);
+                console.log(`  ✗ Has ips array:`, !!(match?.ips && Array.isArray(match.ips)));
+                console.log(`  ✗ Has ip_port:`, !!match?.ip_port);
+                console.log(`  ✗ Has cluster_name:`, !!match?.cluster_name);
+            }
+        });
+    } else {
+        console.log('No cluster matches found in analysis:', analysis.cluster_matches);
+    }
+    
+    // Extract policy domains for comparison (CS vserver only)
+    let policyDomains = [];
+    if (analysis.vserver_type && analysis.vserver_type.toLowerCase() === 'cs' && analysis.cs_policies) {
+        analysis.cs_policies.forEach(policy => {
+            const rule = policy.rule || '';
+            const domains = extractDomainsFromRule(rule);
+            policyDomains.push(...domains);
+        });
+    }
+    
+    // Display related vservers (same IP, different protocol/port)
+    if (analysis.related_vservers && analysis.related_vservers.length > 0) {
+        document.getElementById('relatedVServersSection').style.display = 'block';
+        const relatedBody = document.getElementById('relatedVServersBody');
+        relatedBody.innerHTML = '';
+        
+        analysis.related_vservers.forEach(relatedVS => {
+            const row = document.createElement('tr');
+            
+            // Create state badge with appropriate color
+            const stateBadge = relatedVS.state ? 
+                `<span class="state-badge ${relatedVS.state.toLowerCase()}">${relatedVS.state}</span>` : 
+                '<span class="state-badge unknown">N/A</span>';
+                
+            row.innerHTML = `
+                <td><strong>${relatedVS.name}</strong></td>
+                <td><span class="type-badge ${relatedVS.type ? relatedVS.type.toLowerCase() : ''}">${relatedVS.type || 'N/A'}</span></td>
+                <td><span class="protocol-badge ${relatedVS.protocol ? relatedVS.protocol.toLowerCase() : ''}">${relatedVS.protocol || 'N/A'}</span></td>
+                <td><code>${relatedVS.port || 'N/A'}</code></td>
+                <td>${stateBadge}</td>
+                <td>
+                    <a href="/vserver-analysis/${relatedVS.type ? relatedVS.type.toLowerCase() : 'lb'}/${encodeURIComponent(relatedVS.name)}" class="btn btn-sm btn-outline" title="View Details">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                </td>
+            `;
+            relatedBody.appendChild(row);
+        });
+    }
+    
+    // Display domains
+    if (analysis.domains && analysis.domains.length > 0) {
+        document.getElementById('domainsSection').style.display = 'block';
+        const domainsContainer = document.getElementById('domainsList');
+        domainsContainer.innerHTML = '';
+        
+        if (analysis.domains.length <= 150) {
+            // Show as full-width rows (2 domains per row)
+            domainsContainer.innerHTML = '<div class="domains-rows"></div>';
+            const container = domainsContainer.querySelector('.domains-rows');
+            
+            // Create rows with 2 domains each
+            for (let i = 0; i < analysis.domains.length; i += 2) {
+                const leftDomain = analysis.domains[i];
+                const rightDomain = analysis.domains[i + 1];
+                
+                // Check if domains match with policy domains
+                const leftMatches = policyDomains.includes(leftDomain);
+                const rightMatches = rightDomain && policyDomains.includes(rightDomain);
+                
+                const row = document.createElement('div');
+                row.style.cssText = 'display: flex; gap: 1rem; margin-bottom: 0.75rem; width: 100%;';
+                
+                // Left domain (50% of row)
+                const leftCol = document.createElement('div');
+                leftCol.style.cssText = 'flex: 1; display: flex; align-items: center;';
+                const leftBadgeStyle = leftMatches 
+                    ? 'flex: 1; margin-right: 0.5rem; background-color: #d4edda; border-color: #c3e6cb; color: #155724;' 
+                    : 'flex: 1; margin-right: 0.5rem;';
+                leftCol.innerHTML = `
+                    <span class="domain-item-badge" style="${leftBadgeStyle}">${leftDomain}${leftMatches ? ' 🎯' : ''}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${leftDomain}', event)" title="Copy domain">📋</button>
+                `;
+                
+                // Right domain (50% of row) or empty if no more domains
+                const rightCol = document.createElement('div');
+                rightCol.style.cssText = 'flex: 1; display: flex; align-items: center;';
+                
+                if (rightDomain) {
+                    const rightBadgeStyle = rightMatches 
+                        ? 'flex: 1; margin-right: 0.5rem; background-color: #d4edda; border-color: #c3e6cb; color: #155724;' 
+                        : 'flex: 1; margin-right: 0.5rem;';
+                    rightCol.innerHTML = `
+                        <span class="domain-item-badge" style="${rightBadgeStyle}">${rightDomain}${rightMatches ? ' 🎯' : ''}</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${rightDomain}', event)" title="Copy domain">📋</button>
+                    `;
+                }
+                
+                row.appendChild(leftCol);
+                row.appendChild(rightCol);
+                container.appendChild(row);
+            }
+        } else {
+            // Show as compact list for many domains
+            const domainListHtml = analysis.domains.map(domain => {
+                const matches = policyDomains.includes(domain);
+                const bgColor = matches ? 'background-color: #d4edda; color: #155724;' : '';
+                return `<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; ${bgColor} padding: 0.2rem; border-radius: 3px;">
+                    <span style="flex: 1;">${domain}${matches ? ' 🎯' : ''}</span>
+                    <button class="copy-btn-small" onclick="copyToClipboard('${domain}', event)" title="Copy domain">📋</button>
+                </div>`;
+            }).join('');
+            
+            domainsContainer.innerHTML = `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <div style="font-family: 'Courier New', monospace; font-size: 0.85rem; line-height: 1.4; color: #28a745;">
+                        ${domainListHtml}
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #6c757d;">
+                        ${analysis.domains.length} domains total
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    // Display services (hide for CS vserver)
+    if (analysis.services && analysis.services.length > 0 && analysis.vserver_type && analysis.vserver_type.toLowerCase() !== 'cs') {
+        document.getElementById('servicesSection').style.display = 'block';
+        const servicesBody = document.getElementById('servicesBody');
+        servicesBody.innerHTML = '';
+        
+        analysis.services.forEach(service => {
+            const row = servicesBody.insertRow();
+            console.log(`Looking up cluster for service ${service.name} with IP ${service.ip}`);
+            const clusterMatch = window.clusterMatches && window.clusterMatches[service.ip] ? window.clusterMatches[service.ip] : '';
+            console.log(`Found cluster: ${clusterMatch || 'none'}`);
+            row.innerHTML = `
+                <td>${service.name}</td>
+                <td class="ip-address">${service.ip}</td>
+                <td>${service.port}</td>
+                <td>${service.type}</td>
+                <td><span class="state state-${(service.state || 'unknown').toLowerCase()}">${service.state}</span></td>
+                <td>${service.weight}</td>
+                <td style="${clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600;' : 'color: #6c757d;'}">${clusterMatch || '-'}</td>
+            `;
+        });
+    }
+    
+    // Display service groups (hide for CS vserver)
+    if (analysis.servicegroups && analysis.servicegroups.length > 0 && analysis.vserver_type && analysis.vserver_type.toLowerCase() !== 'cs') {
+        document.getElementById('servicegroupsSection').style.display = 'block';
+        const sgContainer = document.getElementById('servicegroupsContainer');
+        sgContainer.innerHTML = '';
+        
+        analysis.servicegroups.forEach(sg => {
+            const sgDiv = document.createElement('div');
+            sgDiv.className = 'servicegroup-container';
+            
+            let membersHtml = '';
+            if (sg.members && sg.members.length > 0) {
+                membersHtml = sg.members.map(member => {
+                    console.log(`Looking up cluster for servicegroup member with IP ${member.ip}`);
+                    const clusterMatch = window.clusterMatches && window.clusterMatches[member.ip] ? window.clusterMatches[member.ip] : '';
+                    console.log(`Found cluster: ${clusterMatch || 'none'}`);
+                    return `
+                        <div class="member-item" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+                            <span class="ip-address">${member.ip}:${member.port}</span>
+                            <span>Weight: ${member.weight || 'N/A'}</span>
+                            <span class="state state-${(member.state || 'unknown').toLowerCase()}">${member.state || 'N/A'}</span>
+                            <span style="${clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600; padding: 0.2rem 0.4rem; border-radius: 3px;' : 'color: #6c757d;'}">${clusterMatch || '-'}</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                membersHtml = '<div class="member-item">No members found</div>';
+            }
+            
+            sgDiv.innerHTML = `
+                <div class="servicegroup-header">${sg.name}</div>
+                <div class="servicegroup-members">${membersHtml}</div>
+            `;
+            sgContainer.appendChild(sgDiv);
+        });
+    }
+    
+    // Display cluster matches
+    if (analysis.cluster_matches && Array.isArray(analysis.cluster_matches) && analysis.cluster_matches.length > 0) {
+        document.getElementById('clustersSection').style.display = 'block';
+        const clusterGroupsContainer = document.getElementById('clusterGroups');
+        clusterGroupsContainer.innerHTML = '';
+        
+        // Group clusters to avoid duplicates
+        const uniqueClusters = {};
+        analysis.cluster_matches.forEach(match => {
+            if (match && match.cluster_name) {
+                const clusterName = match.cluster_name;
+                if (!uniqueClusters[clusterName]) {
+                    uniqueClusters[clusterName] = {
+                        cluster_name: clusterName,
+                        ips: new Set()  // Use Set to avoid duplicate IPs
+                    };
+                }
+                
+                // Handle both data formats
+                if (match.ips && Array.isArray(match.ips)) {
+                    // Format 1: netscaler_client.py format (grouped)
+                    match.ips.forEach(ip => uniqueClusters[clusterName].ips.add(ip));
+                } else if (match.ip_port) {
+                    // Format 2: routes.py format (individual)
+                    const ip = match.ip_port.split(':')[0];
+                    uniqueClusters[clusterName].ips.add(ip);
+                } else if (match.ip) {
+                    // Format 3: Single IP
+                    uniqueClusters[clusterName].ips.add(match.ip);
+                }
+            }
+        });
+        
+        Object.values(uniqueClusters).forEach(cluster => {
+            const clusterGroup = document.createElement('div');
+            clusterGroup.className = 'cluster-group';
+            
+            const ipArray = Array.from(cluster.ips);
+            const ipCount = ipArray.length;
+            
+            clusterGroup.innerHTML = `
+                <div class="cluster-group-header">
+                    <div class="cluster-name">${cluster.cluster_name}</div>
+                    <div class="cluster-ip-count">${ipCount} IP${ipCount !== 1 ? 's' : ''}</div>
+                </div>
+                <div class="cluster-ips">
+                    ${ipArray.map(ip => `<div class="cluster-ip">${ip}</div>`).join('')}
+                </div>
+            `;
+            
+            clusterGroupsContainer.appendChild(clusterGroup);
+        });
+    }
+    
+    // Display Default LB VServer section (separate from policies)
+    if (analysis.vserver_type && analysis.vserver_type.toLowerCase() === 'cs') {
+        await displayDefaultLBVServer(analysis.default_lbvserver, analysis.default_lbvserver_details);
+    }
+    
+    // Display CS policies if it's a CS vserver
+    if (analysis.vserver_type && analysis.vserver_type.toLowerCase() === 'cs' && analysis.cs_policies) {
+        await displayCSPolicies(analysis.cs_policies, analysis.target_vservers, analysis.target_vserver_details);
+    }
+    
+    // Show ELCHI Templates section
+    document.getElementById('elchiSection').style.display = 'block';
+}
+
+// Extract domains from policy rules
+function extractDomainsFromRule(rule) {
+    const domains = [];
+    if (!rule || rule === 'N/A') return domains;
+    
+    // Match patterns like: HOSTNAME.CONTAINS("domain.com"), HOSTNAME.EQ("domain.com"), etc.
+    const patterns = [
+        /HOSTNAME\.(?:CONTAINS|EQ|STARTSWITH|ENDSWITH)\s*\(\s*['"](.*?)['"]\s*\)/gi,
+        /HOST\s*[=~]\s*['"](.*?)['"]/gi,
+        /HTTP\.REQ\.HOSTNAME\.(?:CONTAINS|EQ|STARTSWITH|ENDSWITH)\s*\(\s*['"](.*?)['"]\s*\)/gi
+    ];
+    
+    patterns.forEach(pattern => {
+        let match;
+        while ((match = pattern.exec(rule)) !== null) {
+            const domain = match[1].trim();
+            if (domain && !domains.includes(domain)) {
+                domains.push(domain);
+            }
+        }
+    });
+    
+    return domains;
+}
+
+// Check if domain exists in DNS mapping
+async function checkDomainInDNS(domain) {
+    try {
+        const response = await fetch('/api/dns-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: domain })
+        });
+        const result = await response.json();
+        return result.exists || false;
+    } catch (error) {
+        console.error('DNS check failed:', error);
+        return false;
+    }
+}
+
+// Display Default LB VServer in a separate section
+async function displayDefaultLBVServer(defaultLB, defaultLBDetails = {}) {
+    const defaultLBContainer = document.getElementById('defaultLBContainer');
+    
+    if (defaultLB) {
+        document.getElementById('defaultLBSection').style.display = 'block';
+        
+        let html = `
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.5rem; color: #856404;">🎯 Default LB VServer</h4>
+                <p style="margin-bottom: 0.5rem; color: #856404; font-size: 0.9rem;">Traffic that doesn't match any policy will be forwarded to:</p>
+                <a href="/vserver-analysis/lb/${encodeURIComponent(defaultLB)}"
+                   style="background: #fd7e14; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-weight: 600; transition: all 0.2s; display: inline-block;"
+                   onmouseover="this.style.background='#e8590c'; this.style.transform='scale(1.05)';"
+                   onmouseout="this.style.background='#fd7e14'; this.style.transform='scale(1)';">
+                    ${defaultLB} →
+                </a>
+                ${defaultLBDetails && ((defaultLBDetails.services && defaultLBDetails.services.length > 0) || 
+                  (defaultLBDetails.servicegroups && defaultLBDetails.servicegroups.length > 0)) ? `
+                    <div style="margin-top: 0.75rem;">
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; background: white; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Type</th>
+                                        <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Name</th>
+                                        <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">IP</th>
+                                        <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Port</th>
+                                        <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057;">Cluster</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${defaultLBDetails.services ? defaultLBDetails.services.map(service => {
+                                        const serviceIP = service.ip || service.ipaddress || 'N/A';
+                                        const clusterMatch = window.clusterMatches && window.clusterMatches[serviceIP] ? window.clusterMatches[serviceIP] : '';
+                                        return '<tr style="border-bottom: 1px solid #ecf0f1;">' +
+                                            '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; color: #3498db; font-weight: 600;">📄 Service</td>' +
+                                            '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + (service.name || service.servicename || 'N/A') + '</td>' +
+                                            '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + serviceIP + '</td>' +
+                                            '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + (service.port || 'N/A') + '</td>' +
+                                            '<td style="padding: 0.5rem; ' + (clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600;' : 'color: #6c757d;') + '">' + (clusterMatch || '-') + '</td>' +
+                                            '</tr>';
+                                    }).join('') : ''}
+                                    ${defaultLBDetails.servicegroups ? defaultLBDetails.servicegroups.map(sg => {
+                                        return (sg.members || []).map(member => {
+                                            const memberIP = member.ip || member.ipaddress || 'N/A';
+                                            const clusterMatch = window.clusterMatches && window.clusterMatches[memberIP] ? window.clusterMatches[memberIP] : '';
+                                            return '<tr style="border-bottom: 1px solid #ecf0f1;">' +
+                                                '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; color: #f39c12; font-weight: 600;">📋 ServiceGroup</td>' +
+                                                '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + (sg.name || sg.servicegroupname || 'N/A') + ' → ' + (member.name || member.servername || 'N/A') + '</td>' +
+                                                '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + memberIP + '</td>' +
+                                                '<td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: \'Courier New\', monospace; color: #2c3e50;">' + (member.port || 'N/A') + '</td>' +
+                                                '<td style="padding: 0.5rem; ' + (clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600;' : 'color: #6c757d;') + '">' + (clusterMatch || '-') + '</td>' +
+                                                '</tr>';
+                                        }).join('');
+                                    }).join('') : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : defaultLBDetails ? `
+                    <div style="margin-top: 0.5rem;">
+                        <span style="color: #dc3545; font-style: italic; font-size: 0.8rem;">⚠️ No services or servicegroups configured</span>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        defaultLBContainer.innerHTML = html;
+    } else {
+        document.getElementById('defaultLBSection').style.display = 'block';
+        defaultLBContainer.innerHTML = `
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.5rem; color: #721c24;">⚠️ Default LB VServer</h4>
+                <p style="margin: 0; color: #721c24; font-size: 0.9rem;">No default LB VServer configured. Traffic that doesn't match any policy may be dropped.</p>
+            </div>
+        `;
+    }
+}
+
+async function displayCSPolicies(policies, targetVservers, targetVserverDetails = {}) {
+    const policiesSection = document.getElementById('policiesSection');
+    const policiesContainer = document.getElementById('policiesContainer');
+    
+    if (!policies || policies.length === 0) {
+        policiesSection.style.display = 'none';
+        return;
+    }
+    
+    policiesSection.style.display = 'block';
+    
+    let html = '';
+    
+    // Display target vservers summary if available
+    if (targetVservers && targetVservers.length > 0) {
+        html += `
+            <div style="background: #e8f4fd; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.5rem;">Target LB VServers</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    ${targetVservers.map(vs => `
+                        <a href="/vserver-analysis/lb/${encodeURIComponent(vs)}"
+                           style="background: #3498db; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; text-decoration: none; transition: all 0.2s;"
+                           onmouseover="this.style.background='#2980b9'; this.style.transform='scale(1.05)';"
+                           onmouseout="this.style.background='#3498db'; this.style.transform='scale(1)';">
+                            ${vs}
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Display each policy
+    html += '<div class="policies-list">';
+    
+    // Process policies one by one to check domains
+    for (let index = 0; index < policies.length; index++) {
+        const policy = policies[index];
+        const policyName = policy.policyname || `Policy ${index + 1}`;
+        const priority = policy.priority || 'N/A';
+        const rule = policy.rule || 'N/A';
+        const targetLB = policy.targetlbvserver || 'N/A';
+        const action = policy.action || 'N/A';
+        
+        // Extract domains from rule and check if they exist in DNS
+        const domains = extractDomainsFromRule(rule);
+        let hasDomainMatch = false;
+        
+        if (domains.length > 0) {
+            for (const domain of domains) {
+                const exists = await checkDomainInDNS(domain);
+                if (exists) {
+                    hasDomainMatch = true;
+                    break;
+                }
+            }
+        }
+        
+        // Choose background color based on domain match
+        const cardBgColor = hasDomainMatch ? '#d4edda' : '#ffffff';
+        const cardBorderColor = hasDomainMatch ? '#c3e6cb' : '#dee2e6';
+        
+        html += `
+            <div class="policy-card" style="background-color: ${cardBgColor}; border-color: ${cardBorderColor};">
+                <div class="policy-header" style="background-color: ${hasDomainMatch ? '#d1ecf1' : '#f8f9fa'};">
+                    <span class="policy-number">#${index + 1}</span>
+                    <strong style="flex: 1;">${policyName}</strong>
+                    <span class="badge badge-info" style="color: #000000; background-color: #17a2b8;">Priority: ${priority}</span>
+                    ${hasDomainMatch ? '<span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-left: 0.5rem;">📍 DNS Match</span>' : ''}
+                </div>
+                <div class="policy-body" style="padding: 1rem;">
+                    <div class="policy-detail">
+                        <strong>Rule:</strong>
+                        <pre style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem; font-size: 0.85rem;">${rule}</pre>
+                        ${domains.length > 0 ? `
+                            <div style="margin-top: 0.5rem;">
+                                <strong style="font-size: 0.9rem;">Domains in rule:</strong>
+                                <div style="margin-top: 0.25rem;">
+                                    ${domains.map(domain => `<span style="background: #e9ecef; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.8rem; margin-right: 0.3rem; display: inline-block;">${domain}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="policy-detail" style="margin-top: 0.75rem; background: #d4edda; padding: 0.75rem; border-radius: 4px; border: 1px solid #c3e6cb;">
+                        <strong style="color: #155724;">➜ Target VServer:</strong>
+                        <a href="/vserver-analysis/lb/${encodeURIComponent(targetLB)}" 
+                           style="display: inline-block; margin-left: 0.5rem; background: #28a745; color: white; padding: 0.25rem 0.75rem; border-radius: 4px; font-weight: 600; text-decoration: none; transition: all 0.2s;"
+                           onmouseover="this.style.background='#218838'; this.style.transform='scale(1.05)';"
+                           onmouseout="this.style.background='#28a745'; this.style.transform='scale(1)';">
+                            ${targetLB} →
+                        </a>
+                        ${targetVserverDetails[targetLB] ? `
+                            <div style="margin-top: 0.75rem;">
+                                ${(targetVserverDetails[targetLB].services && targetVserverDetails[targetLB].services.length > 0) || 
+                                  (targetVserverDetails[targetLB].servicegroups && targetVserverDetails[targetLB].servicegroups.length > 0) ? `
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.5rem; background: white; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                            <thead>
+                                                <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                                    <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Type</th>
+                                                    <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Name</th>
+                                                    <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">IP</th>
+                                                    <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057; border-right: 1px solid #dee2e6;">Port</th>
+                                                    <th style="padding: 0.5rem; text-align: left; font-weight: 600; color: #495057;">Cluster</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${targetVserverDetails[targetLB].services ? targetVserverDetails[targetLB].services.map(service => {
+                                                    const serviceIP = service.ip || service.ipaddress || 'N/A';
+                                                    const clusterMatch = window.clusterMatches && window.clusterMatches[serviceIP] ? window.clusterMatches[serviceIP] : '';
+                                                    return `
+                                                        <tr style="border-bottom: 1px solid #ecf0f1;">
+                                                            <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; color: #3498db; font-weight: 600;">📄 Service</td>
+                                                            <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${service.name || service.servicename || 'N/A'}</td>
+                                                            <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${serviceIP}</td>
+                                                            <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${service.port || 'N/A'}</td>
+                                                            <td style="padding: 0.5rem; ${clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600;' : 'color: #6c757d;'}">${clusterMatch || '-'}</td>
+                                                        </tr>
+                                                    `;
+                                                }).join('') : ''}
+                                                ${targetVserverDetails[targetLB].servicegroups ? targetVserverDetails[targetLB].servicegroups.map(sg => {
+                                                    return (sg.members || []).map(member => {
+                                                        const memberIP = member.ip || member.ipaddress || 'N/A';
+                                                        const clusterMatch = window.clusterMatches && window.clusterMatches[memberIP] ? window.clusterMatches[memberIP] : '';
+                                                        return `
+                                                            <tr style="border-bottom: 1px solid #ecf0f1;">
+                                                                <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; color: #f39c12; font-weight: 600;">📋 ServiceGroup</td>
+                                                                <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${sg.name || sg.servicegroupname || 'N/A'} → ${member.name || member.servername || 'N/A'}</td>
+                                                                <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${memberIP}</td>
+                                                                <td style="padding: 0.5rem; border-right: 1px solid #ecf0f1; font-family: 'Courier New', monospace; color: #2c3e50;">${member.port || 'N/A'}</td>
+                                                                <td style="padding: 0.5rem; ${clusterMatch ? 'background: #d4edda; color: #155724; font-weight: 600;' : 'color: #6c757d;'}">${clusterMatch || '-'}</td>
+                                                            </tr>
+                                                        `;
+                                                    }).join('');
+                                                }).join('') : ''}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ` : `
+                                    <div style="margin-top: 0.5rem;">
+                                        <span style="color: #dc3545; font-style: italic; font-size: 0.8rem;">⚠️ No services or servicegroups configured</span>
+                                    </div>
+                                `}
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${action !== 'N/A' ? `
+                        <div class="policy-detail" style="margin-top: 0.75rem;">
+                            <strong>Action:</strong> ${action}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    html += '</div>';
+    
+    policiesContainer.innerHTML = html;
+}
+
+function highlightDomains(rule) {
+    if (!rule || rule === 'N/A') return rule;
+    
+    try {
+        // Regex to find domain patterns in NetScaler expressions
+        const domainPatterns = [
+            // HTTP.REQ.HOSTNAME.CONTAINS("domain.com")
+            /HTTP\.REQ\.HOSTNAME\.[A-Z_]+\(["']([a-zA-Z0-9\-\.]+)["'][^)]*\)/g,
+            // HTTP.REQ.URL.PATH.STARTSWITH("/path")
+            /HTTP\.REQ\.URL\.[A-Z_]+\(["']([a-zA-Z0-9\-\.\/]+)["'][^)]*\)/g,
+            // REQ.HEADER.Host("domain.com")
+            /REQ\.HEADER\.Host\(["']([a-zA-Z0-9\-\.]+)["'][^)]*\)/g,
+            // Simple quoted domains
+            /["']([a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,})["']/g,
+            // Path patterns
+            /["'](\/[a-zA-Z0-9\-\._\/\*]*?)["']/g
+        ];
+        
+        let highlighted = rule;
+        
+        domainPatterns.forEach(pattern => {
+            highlighted = highlighted.replace(pattern, (match, domain) => {
+                if (domain && (domain.includes('.') || domain.startsWith('/'))) {
+                    return match.replace(domain, `<span class="domain-highlight">${domain}</span>`);
+                }
+                return match;
+            });
+        });
+        
+        return highlighted;
+    } catch (e) {
+        console.error('Regex error in highlightDomains:', e);
+        return rule;
+    }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', () => loadVServerDetails(true));
+
+// Generate ELCHI Templates
+// Template order configuration - modify this to change display order
+const TEMPLATE_ORDER = [
+    { 
+        key: 'endpoint_template', 
+        title: 'Endpoint Template', 
+        elementId: 'endpointTemplate', 
+        filename: 'endpoint.json' 
+    },
+    { 
+        key: 'cluster_template', 
+        title: 'Cluster Template', 
+        elementId: 'clusterTemplate', 
+        filename: 'cluster.json' 
+    },
+    { 
+        key: 'vhost_template', 
+        title: 'Virtual Host Template', 
+        elementId: 'vhostTemplate', 
+        filename: 'virtual_host.json' 
+    },
+    { 
+        key: 'route_template', 
+        title: 'Route Template', 
+        elementId: 'routeTemplate', 
+        filename: 'route.json' 
+    },
+    { 
+        key: 'hcm_template', 
+        title: 'HCM Template', 
+        elementId: 'hcmTemplate', 
+        filename: 'hcm.json' 
+    },
+    { 
+        key: 'tcp_template', 
+        title: 'TCP Template', 
+        elementId: 'tcpTemplate', 
+        filename: 'tcp.json' 
+    },
+    { 
+        key: 'listener_template', 
+        title: 'Listener Template', 
+        elementId: 'listenerTemplate', 
+        filename: 'listener.json' 
+    }
+];
+
+function createTemplateSection(templateConfig, isLast = false) {
+    const marginBottom = isLast ? '' : 'margin-bottom: 2rem;';
+    return `
+        <div class="template-section" style="${marginBottom}">
+            <h4>${templateConfig.title}</h4>
+            <div id="${templateConfig.elementId}_wrapper" class="json-editor-wrapper">
+                <textarea id="${templateConfig.elementId}" style="display:none;">-</textarea>
+            </div>
+        </div>
+    `;
+}
+
+function createTabbedTemplates(title, templates, type) {
+    const tabGroupId = `${type}Tabs`;
+    const contentGroupId = `${type}TabContent`;
+    
+    let tabsHTML = '';
+    let contentHTML = '';
+    
+    templates.forEach((config, index) => {
+        const tabId = `${type}Tab${index}`;
+        const contentId = `${type}Content${index}`;
+        const isActive = index === 0 ? 'active' : '';
+        const showClass = index === 0 ? 'show active' : '';
+        
+        // Extract cluster/endpoint name from title for better tab labels (includes port)
+        const tabLabel = config.title.match(/\((.*?)\)/)?.[1] || `${type} ${index + 1}`;
+        
+        tabsHTML += `
+            <li class="nav-item" role="presentation">
+                <button class="nav-link ${isActive}" id="${tabId}" data-bs-toggle="tab" data-bs-target="#${contentId}" type="button" role="tab" aria-controls="${contentId}" aria-selected="${index === 0 ? 'true' : 'false'}" style="font-size: 0.9rem;">
+                    ${tabLabel}
+                </button>
+            </li>
+        `;
+        
+        contentHTML += `
+            <div class="tab-pane fade ${showClass}" id="${contentId}" role="tabpanel" aria-labelledby="${tabId}" tabindex="0">
+                <div id="${config.elementId}_wrapper" class="json-editor-wrapper">
+                    <textarea id="${config.elementId}" style="display:none;"></textarea>
+                </div>
+            </div>
+        `;
+    });
+    
+    return `
+        <div class="template-section" style="margin-bottom: 2rem;">
+            <h4 style="margin-bottom: 1rem;">${title}</h4>
+            <div class="nav-tabs-wrapper">
+                <ul class="nav nav-tabs" id="${tabGroupId}" role="tablist" style="border-bottom: 1px solid #dee2e6;">
+                    ${tabsHTML}
+                </ul>
+                <div class="tab-content" id="${contentGroupId}" style="border: 1px solid #dee2e6; border-top: none; background: #2d3748;">
+                    ${contentHTML}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function generateTemplates() {
+    const button = document.getElementById('generateTemplatesBtn');
+    const loading = document.getElementById('templatesLoading');
+    const content = document.getElementById('templatesContent');
+    const vserverName = '{{ vserver_name }}';
+    const vserverType = '{{ vserver_type }}';
+    
+    // Get options from UI
+    const version = document.getElementById('versionSelect').value;
+    const clusterSsl = document.getElementById('clusterSslCheck').checked;
+    const listenerType = document.getElementById('listenerTypeSelect').value;
+    const addressType = document.getElementById('addressTypeSelect').value;
+    const textReplaceFrom = document.getElementById('textReplaceFromInput').value.trim();
+    const textReplaceTo = document.getElementById('textReplaceToInput').value;
+    const tlsContextSelect = document.getElementById('tlsContextSelect');
+    const selectedTlsContext = tlsContextSelect && tlsContextSelect.value ? JSON.parse(tlsContextSelect.value) : null;
+    
+    button.disabled = true;
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    
+    try {
+        // Make the API request with parallel auth check
+        const requestResult = await checkAuthWithRequest(
+            fetch(`/api/generate-elchi-templates/${vserverType}/${encodeURIComponent(vserverName)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    version: version,
+                    cluster_ssl: clusterSsl,
+                    listener_type: listenerType,
+                    address_type: addressType,
+                    text_replace_from: textReplaceFrom,
+                    text_replace_to: textReplaceTo,
+                    tls_context: selectedTlsContext
+                })
+            })
+        );
+        
+        // Extract response from Promise.allSettled result
+        if (requestResult.status === 'rejected') {
+            throw new Error(requestResult.reason?.message || 'Network error');
+        }
+        
+        const response = requestResult.value;
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to generate templates');
+        }
+        
+        // Store generated templates and options globally
+        generatedTemplatesData = {
+            templates: data,
+            version: version,
+            cluster_ssl: clusterSsl,
+            listener_type: listenerType,
+            text_replace_from: textReplaceFrom,
+            text_replace_to: textReplaceTo,
+            tls_context: selectedTlsContext
+        };
+        
+        // Create template sections based on generated templates and order configuration
+        const generatedTemplates = data.templates_generated || [];
+        let templatesHTML = '';
+        
+        // Check if this is a CS vserver with multiple templates
+        const isCSVserver = data.vserver_type === 'CS';
+        let allTemplateConfigs = [];
+        
+        if (isCSVserver) {
+            // For CS vservers, collect ALL template keys from response (including additional ones)
+            console.log('CS VServer - Full data object:', data);
+            console.log('CS VServer - All data keys:', Object.keys(data));
+            const allTemplateKeys = Object.keys(data).filter(key => key.includes('_template'));
+            console.log('CS VServer - All template keys found:', allTemplateKeys);
+            console.log('CS unique clusters:', data.cs_unique_clusters);
+            
+            // Create template configs for all found templates
+            allTemplateConfigs = allTemplateKeys.map(key => {
+                console.log(`Processing template key: ${key}`);
+                // Check if it's a standard template from TEMPLATE_ORDER
+                const standardTemplate = TEMPLATE_ORDER.find(config => config.key === key);
+                if (standardTemplate) {
+                    console.log(`  - Found in standard templates`);
+                    return standardTemplate;
+                } else {
+                    // Create config for additional CS templates (cluster_template_xxx_port, endpoint_template_xxx_port)
+                    // Extract template type and name correctly
+                    let templateType, clusterNameWithPort;
+                    
+                    if (key.startsWith('cluster_template_')) {
+                        templateType = 'cluster';
+                        clusterNameWithPort = key.replace('cluster_template_', '');
+                    } else if (key.startsWith('endpoint_template_')) {
+                        templateType = 'endpoint';
+                        clusterNameWithPort = key.replace('endpoint_template_', '');
+                    } else {
+                        // Fallback for other template types
+                        const parts = key.split('_template_');
+                        templateType = parts[0];
+                        clusterNameWithPort = parts[1] || 'unknown';
+                    }
+                    
+                    const config = {
+                        key: key,
+                        title: `${templateType.charAt(0).toUpperCase() + templateType.slice(1)} Template (${clusterNameWithPort})`,
+                        elementId: key.replace(/[_-]/g, '') + 'Element',
+                        filename: `${templateType}_${clusterNameWithPort}.json`
+                    };
+                    console.log(`  - Created additional template config:`, config);
+                    return config;
+                }
+            });
+        } else {
+            // For LB vservers, use standard template order
+            allTemplateConfigs = TEMPLATE_ORDER.filter(templateConfig => {
+                const templateName = templateConfig.key.replace('_template', ''); // endpoint_template -> endpoint
+                return generatedTemplates.includes(templateName);
+            });
+        }
+        
+        // For CS vservers, group templates by type for tabbed display
+        if (isCSVserver) {
+            // Group templates by type
+            const endpointTemplates = [];
+            const clusterTemplates = [];
+            const otherTemplates = [];
+            
+            allTemplateConfigs.forEach(config => {
+                console.log(`Grouping template: ${config.key}`);
+                if (config.key.startsWith('endpoint_template')) {
+                    console.log(`  -> Adding to endpoint templates`);
+                    endpointTemplates.push(config);
+                } else if (config.key.startsWith('cluster_template')) {
+                    console.log(`  -> Adding to cluster templates`);
+                    clusterTemplates.push(config);
+                } else {
+                    console.log(`  -> Adding to other templates`);
+                    otherTemplates.push(config);
+                }
+            });
+            
+            console.log('Grouped templates:', {
+                endpoints: endpointTemplates.length,
+                clusters: clusterTemplates.length,
+                others: otherTemplates.length,
+                endpointKeys: endpointTemplates.map(t => t.key),
+                clusterKeys: clusterTemplates.map(t => t.key)
+            });
+            
+            // Create tabbed interface for multiple templates
+            if (endpointTemplates.length > 1 || clusterTemplates.length > 1) {
+                // Create tabs for endpoints
+                if (endpointTemplates.length > 1) {
+                    templatesHTML += createTabbedTemplates('Endpoint Templates', endpointTemplates, 'endpoint');
+                } else if (endpointTemplates.length === 1) {
+                    templatesHTML += createTemplateSection(endpointTemplates[0], false);
+                }
+                
+                // Create tabs for clusters
+                if (clusterTemplates.length > 1) {
+                    templatesHTML += createTabbedTemplates('Cluster Templates', clusterTemplates, 'cluster');
+                } else if (clusterTemplates.length === 1) {
+                    templatesHTML += createTemplateSection(clusterTemplates[0], false);
+                }
+                
+                // Sort other templates according to TEMPLATE_ORDER before adding
+                const sortedOtherTemplates = otherTemplates.sort((a, b) => {
+                    const aIndex = TEMPLATE_ORDER.findIndex(t => t.key === a.key);
+                    const bIndex = TEMPLATE_ORDER.findIndex(t => t.key === b.key);
+                    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+                });
+                
+                // Add other templates in correct order
+                sortedOtherTemplates.forEach((config, index) => {
+                    const isLast = index === sortedOtherTemplates.length - 1;
+                    templatesHTML += createTemplateSection(config, isLast);
+                });
+            } else {
+                // Normal display if not multiple templates
+                allTemplateConfigs.forEach((templateConfig, index) => {
+                    const isLast = index === allTemplateConfigs.length - 1;
+                    templatesHTML += createTemplateSection(templateConfig, isLast);
+                });
+            }
+        } else {
+            // For LB vservers, use normal display
+            allTemplateConfigs.forEach((templateConfig, index) => {
+                const isLast = index === allTemplateConfigs.length - 1;
+                templatesHTML += createTemplateSection(templateConfig, isLast);
+            });
+        }
+        
+        content.innerHTML = templatesHTML;
+        
+        // Add protocol info header
+        if (data.protocol) {
+            const options = data.options || {};
+            const optionsInfo = [];
+            if (options.version) optionsInfo.push(`Version: ${options.version}`);
+            if (options.cluster_ssl) optionsInfo.push('Cluster SSL: Enabled');
+            if (options.listener_type && options.listener_type !== 'auto') optionsInfo.push(`Listener: ${options.listener_type.toUpperCase()}`);
+            if (options.tls_context) optionsInfo.push(`TLS Context: ${options.tls_context}`);
+            
+            content.insertAdjacentHTML('afterbegin', 
+                `<div style="background: #e8f4fd; border: 1px solid #bee5eb; border-radius: 4px; padding: 1rem; margin-bottom: 2rem;">
+                    <strong>Protocol:</strong> ${data.protocol} 
+                    <span style="color: #6c757d;">- Generated ${generatedTemplates.length} template(s): ${generatedTemplates.join(', ')}</span>
+                    ${optionsInfo.length > 0 ? `<br><small style="color: #6c757d;">Options: ${optionsInfo.join(', ')}</small>` : ''}
+                </div>`
+            );
+        }
+        
+        // Populate template content based on available templates
+        allTemplateConfigs.forEach(templateConfig => {
+            const element = document.getElementById(templateConfig.elementId);
+            if (element && data[templateConfig.key]) {
+                // Initialize CodeMirror for this template (don't set textContent manually)
+                initializeJsonEditor(templateConfig.elementId, data[templateConfig.key]);
+            } else if (element) {
+                console.warn(`No content found for template key: ${templateConfig.key}`);
+            }
+        });
+        
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+        // Show Send to ELCHI section
+        const sendToElchiSection = document.getElementById('sendToElchiSection');
+        if (sendToElchiSection) {
+            sendToElchiSection.style.display = 'block';
+        }
+        
+    } catch (error) {
+        alert('Error generating templates: ' + error.message);
+    } finally {
+        button.disabled = false;
+        loading.style.display = 'none';
+    }
+}
+
+// JSON Editor functions
+const jsonEditors = {}; // Store CodeMirror instances
+
+function initializeJsonEditor(elementId, jsonContent) {
+    const textarea = document.getElementById(elementId);
+    if (!textarea) {
+        console.error(`Textarea with id ${elementId} not found`);
+        return;
+    }
+    
+    // Check if editor already exists
+    if (jsonEditors[elementId]) {
+        jsonEditors[elementId].toTextArea(); // Destroy existing editor
+        delete jsonEditors[elementId];
+    }
+    
+    // Format JSON regardless of input type
+    let formattedJson;
+    console.log(`Initializing JSON editor for ${elementId}:`, typeof jsonContent, jsonContent);
+    
+    if (typeof jsonContent === 'string') {
+        try {
+            const parsed = JSON.parse(jsonContent);
+            formattedJson = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            console.warn(`Invalid JSON string for ${elementId}:`, e);
+            formattedJson = jsonContent;
+        }
+    } else if (typeof jsonContent === 'object' && jsonContent !== null) {
+        // If it's an object, stringify it
+        formattedJson = JSON.stringify(jsonContent, null, 2);
+    } else {
+        // For other types, convert to string
+        formattedJson = String(jsonContent);
+    }
+    
+    console.log(`Formatted JSON for ${elementId}:`, formattedJson.substring(0, 100) + '...');
+    
+    // Clear any existing content and set textarea value
+    textarea.value = '';
+    textarea.textContent = '';
+    setTimeout(() => {
+        textarea.value = formattedJson;
+        
+        // Initialize CodeMirror
+        const editor = CodeMirror.fromTextArea(textarea, {
+            mode: "application/json",
+            theme: "monokai",
+            lineNumbers: true,
+            lineWrapping: false,
+            readOnly: true,
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 2,
+            tabSize: 2,
+            viewportMargin: Infinity,
+            extraKeys: {
+                "Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }
+            }
+        });
+        
+        // Set height
+        editor.setSize(null, "400px");
+        
+        // Store editor instance
+        jsonEditors[elementId] = editor;
+        
+        // JSON is fully expanded by default - no auto-folding
+        
+    }, 10); // Close setTimeout for textarea.value setting
+}
+
+function setupTabChangeHandlers() {
+    // Listen for Bootstrap tab shown events
+    document.addEventListener('shown.bs.tab', function(event) {
+        console.log('Tab changed:', event.target.id);
+        
+        // Refresh all CodeMirror editors when tab changes
+        setTimeout(() => {
+            Object.keys(jsonEditors).forEach(editorId => {
+                const editor = jsonEditors[editorId];
+                if (editor && editor.refresh) {
+                    console.log('Refreshing editor:', editorId);
+                    editor.refresh();
+                }
+            });
+        }, 100);
+    });
+}
+
+// Template functions
+function copyTemplateToClipboard(elementId) {
+    // Get text from CodeMirror editor or fallback to element
+    let text;
+    const element = document.getElementById(elementId);
+    
+    if (jsonEditors[elementId]) {
+        text = jsonEditors[elementId].getValue();
+    } else {
+        text = element.textContent || element.value;
+    }
+    
+    navigator.clipboard.writeText(text).then(() => {
+        // Find the copy button for this template
+        const templateSection = document.querySelector(`#${elementId}_wrapper`)?.closest('.template-section');
+        const copyBtn = templateSection.querySelector('button[onclick*="copyTemplateToClipboard"]');
+        if (copyBtn) {
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            copyBtn.style.background = '#28a745';
+            copyBtn.style.color = 'white';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.background = '';
+                copyBtn.style.color = '';
+            }, 2000);
+        }
+    }).catch(err => {
+        alert('Failed to copy to clipboard');
+    });
+}
+
+function downloadTemplate(elementId, filename) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent;
+    
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Global variable to store generated templates and options
+let generatedTemplatesData = null;
+
+// Add event listener for generate templates button
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generateTemplatesBtn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateTemplates);
+    }
+    
+    const sendToElchiBtn = document.getElementById('sendToElchiBtn');
+    if (sendToElchiBtn) {
+        sendToElchiBtn.addEventListener('click', sendToElchi);
+    }
+    
+    // Initialize TLS context handling
+    setupTlsContextHandling();
+    
+    // Check if protocol is already visible in basic info and set TLS context immediately
+    const checkAndSetTlsContext = () => {
+        // Look for protocol in the basic info that's already rendered
+        const protocolElements = document.querySelectorAll('.info-value');
+        for (let element of protocolElements) {
+            const text = element.textContent.trim();
+            if (['SSL', 'HTTPS', 'SSL_BRIDGE'].includes(text.toUpperCase())) {
+                window.vserverProtocol = text;
+                updateTlsContextVisibility();
+                return true;
+            }
+        }
+        return false;
+    };
+    
+    // Try to set TLS context immediately if protocol info is already available
+    if (!checkAndSetTlsContext()) {
+        // If not found, wait a bit and try again (for dynamically loaded content)
+        setTimeout(checkAndSetTlsContext, 100);
+    }
+    
+    // Load vserver details and then update TLS context visibility
+    loadVServerDetails();
+    
+    // Handle tab changes to refresh CodeMirror editors
+    setupTabChangeHandlers();
+    
+    // Load vserver protocol info for TLS context visibility
+    loadVserverProtocol();
+});
+
+// Global function to show/hide TLS context based on conditions
+function updateTlsContextVisibility() {
+    const listenerTypeSelect = document.getElementById('listenerTypeSelect');
+    const tlsContextGroup = document.getElementById('tlsContextGroup');
+    
+    if (!listenerTypeSelect || !tlsContextGroup) return;
+    
+    const vserverProtocol = window.vserverProtocol || 'HTTP';
+    const listenerType = listenerTypeSelect.value;
+    
+    console.log('TLS Context Visibility Check:', {
+        vserverProtocol: vserverProtocol,
+        listenerType: listenerType,
+        isSSL: vserverProtocol.toUpperCase() === 'SSL',
+        isAuto: listenerType === 'auto'
+    });
+    
+    // Show TLS context if listener type is https/both or if protocol is SSL/HTTPS/SSL_BRIDGE and auto
+    const shouldShowTls = listenerType === 'https' || listenerType === 'both' || 
+                         (listenerType === 'auto' && ['SSL', 'HTTPS', 'SSL_BRIDGE'].includes(vserverProtocol.toUpperCase()));
+    
+    if (shouldShowTls) {
+        tlsContextGroup.style.display = 'block';
+        loadTlsContexts();
+    } else {
+        tlsContextGroup.style.display = 'none';
+    }
+}
+
+function setupTlsContextHandling() {
+    const versionSelect = document.getElementById('versionSelect');
+    const listenerTypeSelect = document.getElementById('listenerTypeSelect');
+    const tlsContextGroup = document.getElementById('tlsContextGroup');
+    
+    // Add event listeners
+    if (versionSelect) {
+        versionSelect.addEventListener('change', function() {
+            if (tlsContextGroup.style.display !== 'none') {
+                loadTlsContexts();
+            }
+        });
+    }
+    
+    if (listenerTypeSelect) {
+        listenerTypeSelect.addEventListener('change', updateTlsContextVisibility);
+    }
+    
+    // Initial check
+    updateTlsContextVisibility();
+}
+
+async function loadTlsContexts() {
+    const tlsContextSelect = document.getElementById('tlsContextSelect');
+    const versionSelect = document.getElementById('versionSelect');
+    
+    if (!tlsContextSelect || !versionSelect) return;
+    
+    const version = versionSelect.value;
+    tlsContextSelect.innerHTML = '<option value="">Loading TLS contexts...</option>';
+    
+    try {
+        // Make the API request with parallel auth check
+        const requestResult = await checkAuthWithRequest(
+            fetch(`/api/get-tls-contexts?version=${version}`)
+        );
+        
+        // Extract response from Promise.allSettled result
+        if (requestResult.status === 'rejected') {
+            console.error('Network error loading TLS contexts:', requestResult.reason);
+            return;
+        }
+        
+        const response = requestResult.value;
+        const data = await response.json();
+        
+        if (response.ok && data.tls_contexts) {
+            tlsContextSelect.innerHTML = '<option value="">Select TLS context...</option>';
+            
+            data.tls_contexts.forEach(context => {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(context);
+                option.textContent = `${context.name} (${context.version})`;
+                tlsContextSelect.appendChild(option);
+            });
+        } else {
+            tlsContextSelect.innerHTML = '<option value="">Error loading TLS contexts</option>';
+            console.error('Error loading TLS contexts:', data);
+        }
+    } catch (error) {
+        tlsContextSelect.innerHTML = '<option value="">Error loading TLS contexts</option>';
+        console.error('Error loading TLS contexts:', error);
+    }
+}
+
+async function loadVserverProtocol() {
+    const vserverName = '{{ vserver_name }}';
+    const vserverType = '{{ vserver_type }}';
+    
+    try {
+        // Make the API request with parallel auth check
+        const requestResult = await checkAuthWithRequest(
+            fetch(`/api/analyze-vserver/${vserverType}/${encodeURIComponent(vserverName)}`)
+        );
+        
+        // Extract response from Promise.allSettled result
+        if (requestResult.status === 'rejected') {
+            console.error('Network error loading protocol:', requestResult.reason);
+            return;
+        }
+        
+        const response = requestResult.value;
+        if (response.ok) {
+            const data = await response.json();
+            window.vserverProtocol = data.vserver_protocol || 'HTTP';
+            
+            // Update TLS context visibility after loading protocol
+            updateTlsContextVisibility();
+        }
+    } catch (error) {
+        console.error('Error loading vserver protocol:', error);
+        window.vserverProtocol = 'HTTP';
+    }
+}
+
+async function sendToElchi() {
+    const button = document.getElementById('sendToElchiBtn');
+    const loading = document.getElementById('elchiSendLoading');
+    const results = document.getElementById('elchiSendResults');
+    
+    if (!generatedTemplatesData) {
+        alert('No templates generated yet. Please generate templates first.');
+        return;
+    }
+    
+    button.disabled = true;
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    
+    try {
+        // Extract only template data from generated templates
+        const templateData = {};
+        const templates = generatedTemplatesData.templates;
+        
+        // Get all template keys that contain _template
+        Object.keys(templates).forEach(key => {
+            if (key.includes('_template')) {
+                templateData[key] = templates[key];
+            }
+        });
+        
+        // Get ignore duplicate option
+        const ignoreDuplicateCheckbox = document.getElementById('ignoreDuplicateCheckbox');
+        const ignoreDuplicate = ignoreDuplicateCheckbox ? ignoreDuplicateCheckbox.checked : false;
+        
+        // Make the API request with parallel auth check
+        const requestResult = await checkAuthWithRequest(
+            fetch('/api/send-templates-to-elchi', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    templates: templateData,
+                    version: generatedTemplatesData.version,
+                    ignore_duplicate: ignoreDuplicate,
+                    vserver_name: '{{ vserver_name }}',
+                    vserver_type: '{{ vserver_type }}'
+                })
+            })
+        );
+        
+        // Extract response from Promise.allSettled result
+        if (requestResult.status === 'rejected') {
+            throw new Error(requestResult.reason?.message || 'Network error');
+        }
+        
+        const response = requestResult.value;
+        
+        console.log('DEBUG: Template send response status:', response.status);
+        const data = await response.json();
+        console.log('DEBUG: Template send response data:', data);
+        
+        // Check if there are conflicts (409 status is expected for conflicts)
+        // Only show conflict error if ignore duplicate is not checked
+        if (data.has_conflicts && data.conflicts && !ignoreDuplicate) {
+            console.log('DEBUG: Conflicts detected, calling displayConflictError');
+            displayConflictError(data.conflicts);
+            loading.style.display = 'none';
+            results.style.display = 'block';
+            return;
+        }
+        
+        // Check for other errors
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to send templates to ELCHI');
+        }
+        
+        // Check if any result requires authentication
+        const authRequired = Object.values(data.results).some(result => result.auth_required);
+        if (authRequired) {
+            alert('ELCHI authentication expired. Please login to ELCHI again from the main page.');
+            window.location.href = '/vservers';
+            return;
+        }
+        
+        // Display results
+        displayElchiSendResults(data.results);
+        
+        // Show success message if any template was successfully sent
+        const hasSuccessfulTemplate = Object.values(data.results).some(result => result.success);
+        if (hasSuccessfulTemplate) {
+            const successMsg = document.createElement('div');
+            successMsg.className = 'alert alert-success';
+            successMsg.style.marginTop = '1rem';
+            successMsg.innerHTML = '<strong>✅ VServer automatically marked as completed!</strong><br>This VServer has been successfully processed and sent to ELCHI.';
+            
+            const resultsContainer = document.getElementById('elchiSendResults');
+            resultsContainer.parentNode.insertBefore(successMsg, resultsContainer);
+        }
+        
+        loading.style.display = 'none';
+        results.style.display = 'block';
+        
+    } catch (error) {
+        displayElchiError(error.message);
+        loading.style.display = 'none';
+        results.style.display = 'block';
+    } finally {
+        button.disabled = false;
+        loading.style.display = 'none';
+    }
+}
+
+function displayElchiSendResults(results) {
+    const resultsContainer = document.getElementById('elchiSendResults');
+    
+    let html = '<h5>Send Results:</h5>';
+    html += '<div style="margin-top: 1rem;">';
+    
+    Object.keys(results).forEach(templateKey => {
+        const result = results[templateKey];
+        const templateName = templateKey.replace('_template', '').toUpperCase();
+        
+        if (result.success) {
+            html += `
+                <div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid #28a745; border-radius: 4px; background-color: #d4edda;">
+                    <div style="font-weight: 600; color: #155724;">
+                        ✅ ${templateName}: Success
+                    </div>
+                    <div style="font-size: 0.9rem; color: #155724; margin-top: 0.25rem;">
+                        Status Code: ${result.status_code}
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid #dc3545; border-radius: 4px; background-color: #f8d7da;">
+                    <div style="font-weight: 600; color: #721c24;">
+                        ❌ ${templateName}: Failed
+                    </div>
+                    <div style="font-size: 0.9rem; color: #721c24; margin-top: 0.25rem;">
+                        Error: ${result.error}
+                    </div>
+                    ${result.status_code ? `<div style="font-size: 0.9rem; color: #721c24;">Status Code: ${result.status_code}</div>` : ''}
+                    ${result.response_text ? `
+                        <div style="margin-top: 0.5rem;">
+                            <strong style="color: #721c24;">Response Body:</strong>
+                            <pre style="background: #721c24; color: white; padding: 0.5rem; border-radius: 3px; margin-top: 0.25rem; font-size: 0.8rem; max-height: 200px; overflow-y: auto; white-space: pre-wrap;">${result.response_text}</pre>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    resultsContainer.innerHTML = html;
+}
+
+function displayConflictError(conflicts) {
+    const resultsContainer = document.getElementById('elchiSendResults');
+    
+    // Check if all conflicts are errors vs actual conflicts
+    const hasAuthErrors = conflicts.some(c => c.error && c.error.includes('401') && c.error.includes('Unauthorized'));
+    const hasActualConflicts = conflicts.some(c => !c.error);
+    
+    let html = '';
+    
+    if (hasAuthErrors && !hasActualConflicts) {
+        html += '<h5 style="color: #dc3545;">🔒 Authentication Error</h5>';
+        html += '<p style="color: #721c24; margin-bottom: 1rem;">Unable to check for conflicts due to authentication issues. Please check your ELCHI login.</p>';
+    } else {
+        html += '<h5 style="color: #dc3545;">⚠️ Resource Name Conflicts Detected</h5>';
+        html += '<p style="color: #721c24; margin-bottom: 1rem;">Issues found with the following resources. No templates were created.</p>';
+    }
+    
+    html += '<div style="margin-top: 1rem;">';
+    
+    conflicts.forEach(conflict => {
+        const templateName = conflict.template_type.toUpperCase();
+        const resourceName = conflict.resource_name || 'Unknown';
+        
+        if (conflict.error) {
+            // Parse error to get more user-friendly message
+            let errorMessage = conflict.error;
+            let errorType = '⚠️ Check Failed';
+            let borderColor = '#ffc107';
+            let bgColor = '#fff3cd';
+            let textColor = '#856404';
+            
+            if (errorMessage.includes('401') && errorMessage.includes('Unauthorized')) {
+                errorType = '🔒 Authentication Error';
+                errorMessage = 'Session expired or invalid credentials. Please re-login to ELCHI.';
+                borderColor = '#dc3545';
+                bgColor = '#f8d7da';
+                textColor = '#721c24';
+            } else if (errorMessage.includes('404')) {
+                errorType = '❌ Not Found';
+                errorMessage = 'Resource type not found or API endpoint unavailable.';
+            } else if (errorMessage.includes('500')) {
+                errorType = '💥 Server Error';
+                errorMessage = 'ELCHI server error. Please try again later.';
+            }
+            
+            html += `
+                <div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid ${borderColor}; border-radius: 4px; background-color: ${bgColor};">
+                    <div style="font-weight: 600; color: ${textColor};">
+                        ${errorType}: ${templateName}
+                    </div>
+                    <div style="font-size: 0.9rem; color: ${textColor}; margin-top: 0.25rem;">
+                        Resource: <strong>${resourceName}</strong>
+                    </div>
+                    <div style="font-size: 0.85rem; color: ${textColor}; margin-top: 0.25rem;">
+                        ${errorMessage}
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid #dc3545; border-radius: 4px; background-color: #f8d7da;">
+                    <div style="font-weight: 600; color: #721c24;">
+                        🚫 ${templateName}: Name Already Exists
+                    </div>
+                    <div style="font-size: 0.9rem; color: #721c24; margin-top: 0.25rem;">
+                        Resource Name: <strong>${resourceName}</strong>
+                    </div>
+                    ${conflict.existing_resources && conflict.existing_resources.length > 0 ? `
+                        <div style="font-size: 0.8rem; color: #721c24; margin-top: 0.25rem;">
+                            Existing Version: ${conflict.existing_resources[0].version || 'Unknown'}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    
+    if (hasAuthErrors && !hasActualConflicts) {
+        html += '<p style="color: #721c24; margin-top: 1rem; font-style: italic;">Please refresh your ELCHI authentication and try again.</p>';
+    } else {
+        html += '<p style="color: #721c24; margin-top: 1rem; font-style: italic;">Please resolve these issues before creating templates.</p>';
+    }
+    
+    resultsContainer.innerHTML = html;
+}
+
+function displayElchiError(errorMessage) {
+    const resultsContainer = document.getElementById('elchiSendResults');
+    
+    let html = '<h5 style="color: #dc3545;">❌ Error Sending Templates to ELCHI</h5>';
+    html += `<div style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid #dc3545; border-radius: 4px; background-color: #f8d7da;">`;
+    html += `<div style="font-weight: 600; color: #721c24;">Error Details:</div>`;
+    html += `<div style="font-size: 0.9rem; color: #721c24; margin-top: 0.25rem;">${errorMessage}</div>`;
+    html += `</div>`;
+    
+    resultsContainer.innerHTML = html;
+}
+
+// Copy to clipboard function
+function copyToClipboard(text, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    navigator.clipboard.writeText(text).then(function() {
+        // Show temporary success message
+        const originalTitle = event.target.title;
+        const originalBg = event.target.style.background;
+        const originalColor = event.target.style.color;
+        
+        event.target.title = 'Copied!';
+        event.target.style.background = '#28a745';
+        event.target.style.color = 'white';
+        
+        setTimeout(() => {
+            event.target.title = originalTitle;
+            event.target.style.background = originalBg;
+            event.target.style.color = originalColor;
+        }, 1000);
+    }).catch(function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            event.target.title = 'Copied!';
+        } catch (err) {
+            event.target.title = 'Copy failed';
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
+// Update floating badges based on analysis data
+function updateFloatingBadges(analysis) {
+    const floatingBadges = document.getElementById('floatingBadges');
+    const basicBadge = document.getElementById('basicBadge');
+    const relatedBadge = document.getElementById('relatedBadge');
+    const domainBadge = document.getElementById('domainBadge');
+    const servicesBadge = document.getElementById('servicesBadge');
+    const servicegroupsBadge = document.getElementById('servicegroupsBadge');
+    const sslBadge = document.getElementById('sslBadge');
+    const clusterBadge = document.getElementById('clusterBadge');
+    const defaultLBBadge = document.getElementById('defaultLBBadge');
+    const policiesBadge = document.getElementById('policiesBadge');
+    const templatesBadge = document.getElementById('templatesBadge');
+    
+    console.log('DEBUG: Badge elements:', {
+        defaultLBBadge: defaultLBBadge,
+        policiesBadge: policiesBadge,
+        templatesBadge: templatesBadge
+    });
+    
+    // Show floating badges container
+    floatingBadges.style.display = 'flex';
+    
+    // Initialize navigation badge click handlers
+    initializeNavigationBadges();
+    
+    // Basic Info Badge - always visible
+    basicBadge.style.display = 'flex';
+    
+    // Related VServers Badge
+    if (analysis.related_vservers && analysis.related_vservers.length > 0) {
+        relatedBadge.style.display = 'flex';
+        const relatedCount = document.getElementById('relatedCount');
+        if (relatedCount) {
+            relatedCount.textContent = analysis.related_vservers.length;
+            relatedCount.style.display = 'block';
+        }
+    }
+    
+    // Domain Names Badge
+    if (analysis.domains && analysis.domains.length > 0) {
+        domainBadge.style.display = 'flex';
+        const domainCount = document.getElementById('domainCount');
+        if (domainCount) {
+            domainCount.textContent = analysis.domains.length;
+            domainCount.style.display = 'block';
+        }
+    }
+    
+    // Services Badge (LB only)
+    if (analysis.services && analysis.services.length > 0 && analysis.vserver_type && analysis.vserver_type.toLowerCase() !== 'cs') {
+        servicesBadge.style.display = 'flex';
+        const servicesCount = document.getElementById('servicesCount');
+        if (servicesCount) {
+            servicesCount.textContent = analysis.services.length;
+            servicesCount.style.display = 'block';
+        }
+    }
+    
+    // Service Groups Badge (LB only)
+    if (analysis.servicegroups && analysis.servicegroups.length > 0 && analysis.vserver_type && analysis.vserver_type.toLowerCase() !== 'cs') {
+        servicegroupsBadge.style.display = 'flex';
+        const servicegroupsCount = document.getElementById('servicegroupsCount');
+        if (servicegroupsCount) {
+            servicegroupsCount.textContent = analysis.servicegroups.length;
+            servicegroupsCount.style.display = 'block';
+        }
+    }
+    
+    // SSL Certificates Badge
+    if (analysis.ssl_certificates && analysis.ssl_certificates.length > 0) {
+        sslBadge.style.display = 'flex';
+        const sslCount = document.getElementById('sslCount');
+        if (sslCount) {
+            sslCount.textContent = analysis.ssl_certificates.length;
+            sslCount.style.display = 'block';
+        }
+        
+        // Show SSL section
+        const sslSection = document.getElementById('sslSection');
+        if (sslSection) {
+            sslSection.style.display = 'block';
+        }
+        
+        // Populate SSL certificates table
+        const sslBody = document.getElementById('sslBody');
+        if (sslBody) {
+            sslBody.innerHTML = analysis.ssl_certificates.map(cert => `
+                <tr>
+                    <td><strong>${cert.name || 'N/A'}</strong></td>
+                    <td>${cert.subject || 'N/A'}</td>
+                    <td>${cert.issuer || 'N/A'}</td>
+                    <td>${cert.expirydate || 'N/A'}</td>
+                    <td>${cert.certfile || 'N/A'}</td>
+                </tr>
+            `).join('');
+        }
+    }
+    
+    // Kubernetes Clusters Badge
+    if (analysis.cluster_matches && analysis.cluster_matches.length > 0) {
+        clusterBadge.style.display = 'flex';
+        const clusterCount = document.getElementById('clusterCount');
+        if (clusterCount) {
+            clusterCount.textContent = analysis.cluster_matches.length;
+            clusterCount.style.display = 'block';
+        }
+    }
+    
+    // CS-specific badges
+    console.log('DEBUG: CS badges check:', {
+        vserver_type: analysis.vserver_type,
+        default_lbvserver: analysis.default_lbvserver,
+        cs_policies: analysis.cs_policies,
+        cs_policies_length: analysis.cs_policies ? analysis.cs_policies.length : 0
+    });
+    
+    console.log('DEBUG: Checking vserver_type condition:', analysis.vserver_type, typeof analysis.vserver_type);
+    if (analysis.vserver_type && (analysis.vserver_type.toLowerCase() === 'cs' || analysis.vserver_type.toUpperCase() === 'CS')) {
+        console.log('DEBUG: CS vserver type detected, showing CS badges');
+        // Default LB Badge
+        console.log('DEBUG: Checking default LB condition:', analysis.default_lbvserver);
+        if (analysis.default_lbvserver && analysis.default_lbvserver !== 'N/A') {
+            console.log('DEBUG: Showing default LB badge', defaultLBBadge);
+            if (defaultLBBadge) {
+                defaultLBBadge.style.display = 'flex';
+                console.log('DEBUG: Default LB badge style set to flex');
+            } else {
+                console.log('DEBUG: defaultLBBadge element not found!');
+            }
+        } else {
+            console.log('DEBUG: Default LB condition failed');
+        }
+        
+        // Content Switching Policies Badge
+        console.log('DEBUG: Checking CS policies condition:', analysis.cs_policies, analysis.cs_policies ? analysis.cs_policies.length : 0);
+        if (analysis.cs_policies && analysis.cs_policies.length > 0) {
+            console.log('DEBUG: Showing CS policies badge', policiesBadge);
+            if (policiesBadge) {
+                policiesBadge.style.display = 'flex';
+                console.log('DEBUG: CS policies badge style set to flex');
+                const policiesCount = document.getElementById('policiesCount');
+                if (policiesCount) {
+                    policiesCount.textContent = analysis.cs_policies.length;
+                    policiesCount.style.display = 'block';
+                    console.log('DEBUG: CS policies count set to', analysis.cs_policies.length);
+                } else {
+                    console.log('DEBUG: policiesCount element not found!');
+                }
+            } else {
+                console.log('DEBUG: policiesBadge element not found!');
+            }
+        } else {
+            console.log('DEBUG: CS policies condition failed');
+        }
+    } else {
+        console.log('DEBUG: vserver_type condition failed or not CS type');
+    }
+    
+    // ELCHI Templates Badge - always visible for generated templates
+    templatesBadge.style.display = 'flex';
+}
+
+// Initialize navigation badge click handlers
+function initializeNavigationBadges() {
+    // Basic Info Badge
+    const basicBadge = document.getElementById('basicBadge');
+    if (basicBadge) {
+        basicBadge.onclick = () => scrollToSection('basicInfo');
+    }
+    
+    // Related VServers Badge
+    const relatedBadge = document.getElementById('relatedBadge');
+    if (relatedBadge) {
+        relatedBadge.onclick = () => scrollToSection('relatedVServersSection');
+    }
+    
+    // Domain Names Badge
+    const domainBadge = document.getElementById('domainBadge');
+    if (domainBadge) {
+        domainBadge.onclick = () => scrollToSection('domainsSection');
+    }
+    
+    // Services Badge
+    const servicesBadge = document.getElementById('servicesBadge');
+    if (servicesBadge) {
+        servicesBadge.onclick = () => scrollToSection('servicesSection');
+    }
+    
+    // Service Groups Badge
+    const servicegroupsBadge = document.getElementById('servicegroupsBadge');
+    if (servicegroupsBadge) {
+        servicegroupsBadge.onclick = () => scrollToSection('servicegroupsSection');
+    }
+    
+    // SSL Certificates Badge
+    const sslBadge = document.getElementById('sslBadge');
+    if (sslBadge) {
+        sslBadge.onclick = () => scrollToSection('sslSection');
+    }
+    
+    // Kubernetes Clusters Badge
+    const clusterBadge = document.getElementById('clusterBadge');
+    if (clusterBadge) {
+        clusterBadge.onclick = () => scrollToSection('clustersSection');
+    }
+    
+    // Default LB Badge
+    const defaultLBBadge = document.getElementById('defaultLBBadge');
+    if (defaultLBBadge) {
+        defaultLBBadge.onclick = () => scrollToSection('defaultLBSection');
+    }
+    
+    // CS Policies Badge
+    const policiesBadge = document.getElementById('policiesBadge');
+    if (policiesBadge) {
+        policiesBadge.onclick = () => scrollToSection('policiesSection');
+    }
+    
+    // ELCHI Templates Badge
+    const templatesBadge = document.getElementById('templatesBadge');
+    if (templatesBadge) {
+        templatesBadge.onclick = () => scrollToSection('elchiSection');
+    }
+}
+
+// Scroll to section and highlight active badge
+function scrollToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        // Special handling for basicInfo which is a div inside detail-section
+        if (sectionId === 'basicInfo') {
+            const basicInfoSection = section.closest('.detail-section');
+            if (basicInfoSection) {
+                basicInfoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        } else if (section.style.display !== 'none') {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Update active badge state
+        updateActiveBadge(sectionId);
+    }
+}
+
+// Update active badge visual state
+function updateActiveBadge(sectionId) {
+    // Remove active class from all badges
+    document.querySelectorAll('.nav-badge').forEach(badge => {
+        badge.classList.remove('active');
+    });
+    
+    // Add active class to current badge based on section
+    const badgeMapping = {
+        'basicInfo': 'basicBadge',
+        'relatedVServersSection': 'relatedBadge',
+        'domainsSection': 'domainBadge',
+        'servicesSection': 'servicesBadge',
+        'servicegroupsSection': 'servicegroupsBadge',
+        'sslSection': 'sslBadge',
+        'clustersSection': 'clusterBadge',
+        'defaultLBSection': 'defaultLBBadge',
+        'policiesSection': 'policiesBadge',
+        'elchiSection': 'templatesBadge'
+    };
+    
+    const badgeId = badgeMapping[sectionId];
+    if (badgeId) {
+        const badge = document.getElementById(badgeId);
+        if (badge && badge.style.display !== 'none') {
+            badge.classList.add('active');
+        }
+    }
+}
+
+// Load details on page load
+loadVServerDetails();
+</script>
+{% endblock %}

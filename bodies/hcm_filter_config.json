@@ -1,0 +1,1 @@
+{"name":"{{filter_name}}","gtype":"envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager","priority":0,"category":"envoy.filters.network","canonical_name":"envoy.filters.network.http_connection_manager","collection":"filters","type":"network_filter","version":"{{version}}"}

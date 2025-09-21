@@ -1,0 +1,1 @@
+{"name":"default-upstream-tls","canonical_name":"envoy.transport_sockets.upstream","gtype":"envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","type":"secret","category":"envoy.transport_sockets.tls","collection":"tls","version":"{{version}}"}

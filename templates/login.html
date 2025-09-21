@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Login - NetScaler Config Viewer{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h2>NetScaler Login</h2>
+    <form id="loginForm">
+        <div class="form-group">
+            <label for="host">NetScaler URL:</label>
+            <input type="text" id="host" name="host" required placeholder="https://10.4.4.4:8010 or http://netscaler.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required placeholder="nsroot">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Connect</button>
+        
+        <div id="error-message" class="error-message" style="display: none;"></div>
+    </form>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        host: document.getElementById('host').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+    };
+    
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/vservers';
+        } else {
+            errorDiv.textContent = data.message || 'Login failed';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Connection error: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

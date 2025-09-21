@@ -1,0 +1,34 @@
+# Web Framework
+flask==3.0.0
+werkzeug==3.0.1
+
+# HTTP Requests
+requests==2.31.0
+urllib3==1.26.20
+
+# Template Engine (Flask dependency)
+jinja2==3.1.6
+MarkupSafe==3.0.2
+
+# Environment Management
+python-dotenv==1.0.0
+
+# Security & Utils
+itsdangerous==2.2.0
+click==8.1.8
+
+# Background Task Scheduling
+schedule==1.2.0
+
+# SSL Certificate Handling
+certifi==2025.8.3
+
+# Character Encoding
+charset-normalizer==3.4.3
+idna==3.10
+
+# Metadata (only needed for Python < 3.8)
+importlib-metadata==8.7.0; python_version < "3.8"
+
+# Archive handling dependency
+zipp==3.23.0

@@ -1,0 +1,1 @@
+{"name":"downstream-tls-context","canonical_name":"envoy.transport_sockets.downstream","gtype":"envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext","type":"tls","category":"envoy.transport_sockets.tls","collection":"tls","version":"{{version}}"}

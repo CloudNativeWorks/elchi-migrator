@@ -1,0 +1,1058 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Elchi Migration Tool{% endblock %}
+
+{% block content %}
+<div class="vservers-container">
+    <div class="header-actions">
+        <h2>Settings</h2>
+    </div>
+    
+    <div class="settings-sections">
+        <!-- IP Filter Configuration -->
+        <div class="settings-section">
+            <h3><i class="fas fa-filter" style="margin-right: 0.5rem; color: #3498db;"></i>IP Filter Configuration</h3>
+            <p class="section-description">Configure which IP addresses should be included or excluded from virtual server listings.</p>
+            
+            <div id="loading-config" class="loading" style="display: none;">Loading configuration...</div>
+            <div id="error-message" class="error-message" style="display: none;"></div>
+            <div id="success-message" class="success-message" style="display: none;"></div>
+            
+            <div id="ip-filter-form" class="config-form">
+                <div class="form-group">
+                    <label for="exclude-ips">Exclude specific IP addresses:</label>
+                    <textarea id="exclude-ips" rows="3" placeholder="0.0.0.0&#10;192.168.1.1"></textarea>
+                    <small class="help-text">One IP address per line</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="exclude-ranges">Exclude IP ranges (prefixes):</label>
+                    <textarea id="exclude-ranges" rows="4" placeholder="10.70.&#10;192.168.10.&#10;192.168.211"></textarea>
+                    <small class="help-text">One IP prefix per line (e.g., "10.70." excludes all IPs starting with 10.70.)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="exclude-patterns">Exclude patterns (regex):</label>
+                    <textarea id="exclude-patterns" rows="3" placeholder="^172\\.16\\..*&#10;^10\\.0\\..*"></textarea>
+                    <small class="help-text">Regular expressions, one per line (advanced users only)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>IP Type Filter:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="ip-filter-type" value="private" id="filter-private">
+                            <span class="radio-text">Only Private IPs</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="ip-filter-type" value="public" id="filter-public">
+                            <span class="radio-text">Only Public IPs</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="ip-filter-type" value="all" id="filter-all">
+                            <span class="radio-text">All IPs</span>
+                        </label>
+                    </div>
+                    <small class="help-text">
+                        Private: RFC 1918 addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x)<br>
+                        Public: Internet routable addresses<br>
+                        All: Both private and public addresses (excluding the above filters)
+                    </small>
+                </div>
+                
+                <div class="form-actions">
+                    <button id="save-config" class="btn btn-primary">Save Configuration</button>
+                    <button id="reset-config" class="btn btn-secondary">Reset to Defaults</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Known Suffixes Management -->
+        <div class="settings-section">
+            <h3><i class="fas fa-eraser" style="margin-right: 0.5rem; color: #e74c3c;"></i>Remove Suffixes</h3>
+            <p class="section-description">Manage remove suffixes that should be cleaned from virtual server names during template generation.</p>
+            
+            <div class="form-group">
+                <label for="known-suffixes">Known Suffixes:</label>
+                <textarea id="known-suffixes" rows="6" placeholder=".example.com&#10;.example.io&#10;.example.biz"></textarea>
+                <small class="help-text">One suffix per line (e.g., ".example.com")</small>
+            </div>
+            
+            <div class="form-actions">
+                <button id="save-suffixes" class="btn btn-primary">Save Suffixes</button>
+                <button id="reset-suffixes" class="btn btn-secondary">Reset to Defaults</button>
+            </div>
+        </div>
+        
+        <!-- DNS Zone Management -->
+        <div class="settings-section">
+            <h3><i class="fas fa-globe" style="margin-right: 0.5rem; color: #27ae60;"></i>DNS Zone Management</h3>
+            <p class="section-description">Upload and manage DNS zone files for domain to IP mapping. <strong>Only .txt and .zone files are accepted</strong> for security reasons.</p>
+                
+                <div id="loading-dns" class="loading" style="display: none;">Loading DNS files...</div>
+                <div id="error-dns" class="error-message" style="display: none;"></div>
+                <div id="success-dns" class="success-message" style="display: none;"></div>
+                
+                <!-- File Upload -->
+                <div class="upload-section">
+                    <h4>Upload DNS Zone Files</h4>
+                    <div class="upload-area">
+                        <input type="file" id="dns-file-input" multiple accept=".zone,.txt" style="display: none;">
+                        <div class="upload-dropzone" onclick="document.getElementById('dns-file-input').click()">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">
+                                <strong>Click to select files</strong> or drag and drop
+                                <br><small>Only .txt and .zone files accepted</small>
+                            </div>
+                        </div>
+                        <button id="upload-dns-btn" class="btn btn-primary" style="margin-top: 1rem;">Upload Files</button>
+                    </div>
+                </div>
+                
+                <!-- File List -->
+                <div class="files-section">
+                    <h4>Uploaded DNS Files</h4>
+                    <div id="dns-files-list" class="files-list">
+                        <!-- DNS files will be loaded here -->
+                    </div>
+                    
+                    <!-- Force Rebuild -->
+                    <div class="rebuild-section" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #dee2e6;">
+                        <h5 style="margin-bottom: 0.5rem;">DNS Mapping</h5>
+                        <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1rem;">
+                            Force rebuild DNS mapping from uploaded zone files. Use this if domains appear with wrong extensions or if mapping seems outdated.
+                        </p>
+                        <button id="rebuild-dns-btn" class="btn btn-warning">
+                            🔄 Force Rebuild DNS Mapping
+                        </button>
+                    </div>
+                </div>
+        </div>
+        
+        <!-- Kubernetes Clusters Sync -->
+        <div class="settings-section">
+            <h3><i class="fas fa-cubes" style="margin-right: 0.5rem; color: #9b59b6;"></i>Kubernetes Clusters</h3>
+            <p class="section-description">Synchronize Kubernetes cluster information from ELCHI API for service IP to cluster matching.</p>
+            
+            <div id="loading-clusters" class="loading" style="display: none;">Loading cluster information...</div>
+            <div id="error-clusters" class="error-message" style="display: none;"></div>
+            <div id="success-clusters" class="success-message" style="display: none;"></div>
+            
+            <div class="cluster-sync-section">
+                <div id="cluster-status" class="cluster-status">
+                    <!-- Cluster status will be loaded here -->
+                </div>
+                
+                <div class="form-actions" style="margin-top: 1.5rem;">
+                    <button id="sync-clusters-btn" class="btn btn-primary">
+                        🔄 Sync Clusters from ELCHI
+                    </button>
+                    <button id="clear-clusters-btn" class="btn btn-secondary">
+                        Clear Cache
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- VServer Statistics -->
+        <div class="settings-section">
+            <h3><i class="fas fa-chart-bar" style="margin-right: 0.5rem; color: #f39c12;"></i>VServer Statistics</h3>
+            <p class="section-description">Fetch request statistics for virtual servers from NetScaler for performance analysis.</p>
+            
+            <div id="loading-stats" class="loading" style="display: none;">Loading statistics information...</div>
+            <div id="error-stats" class="error-message" style="display: none;"></div>
+            <div id="success-stats" class="success-message" style="display: none;"></div>
+            
+            <div class="stats-sync-section">
+                <div id="stats-status" class="cluster-status">
+                    <!-- Stats status will be loaded here -->
+                </div>
+                
+                <div class="form-actions" style="margin-top: 1.5rem;">
+                    <button id="sync-stats-btn" class="btn btn-primary">
+                        📊 Sync VServer Statistics
+                    </button>
+                    <button id="clear-stats-btn" class="btn btn-secondary">
+                        Clear Cache
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-sections {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.settings-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem; /* Fallback for browsers that don't support gap */
+}
+
+.settings-section:last-child {
+    margin-bottom: 0; /* Remove margin from last element to prevent double spacing */
+}
+
+.settings-section h3 {
+    color: #2c3e50;
+    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #f1f3f4;
+    position: relative;
+}
+
+.settings-section h3 i {
+    margin-right: 0.75rem !important;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.section-description {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-top: 1rem;
+}
+
+.config-form {
+    max-width: 600px;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+    resize: vertical;
+}
+
+.form-group textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.help-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: #95a5a6;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.success-message {
+    background-color: #27ae60;
+    color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.radio-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.radio-label:hover {
+    background-color: #f8f9fa;
+}
+
+.radio-label input[type="radio"] {
+    margin: 0.1rem 0.75rem 0 0;
+    flex-shrink: 0;
+}
+
+.radio-text {
+    font-weight: 500;
+}
+
+
+/* Upload Area */
+.upload-section {
+    margin-bottom: 2rem;
+}
+
+.upload-section h4 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.upload-area {
+    max-width: 500px;
+}
+
+.upload-dropzone {
+    border: 2px dashed #bdc3c7;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s, background-color 0.3s;
+}
+
+.upload-dropzone:hover {
+    border-color: #3498db;
+    background-color: #f8f9fa;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    color: #7f8c8d;
+}
+
+/* Files List */
+.files-section h4 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.files-list {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-info {
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.file-meta {
+    font-size: 0.8rem;
+    color: #95a5a6;
+    margin-top: 0.25rem;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-delete {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.btn-delete:hover {
+    background-color: #c0392b;
+}
+
+.empty-state {
+    text-align: center;
+    color: #95a5a6;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* Kubernetes Clusters Section */
+.cluster-status {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.cluster-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.cluster-info-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.cluster-info-value {
+    color: #7f8c8d;
+    font-family: monospace;
+}
+</style>
+
+<script>
+let currentConfig = {};
+
+async function loadConfig() {
+    const loading = document.getElementById('loading-config');
+    const errorDiv = document.getElementById('error-message');
+    const form = document.getElementById('ip-filter-form');
+    
+    loading.style.display = 'block';
+    errorDiv.style.display = 'none';
+    form.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+        
+        if (response.ok) {
+            currentConfig = data;
+            populateForm(data);
+            loading.style.display = 'none';
+            form.style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Failed to load configuration');
+        }
+    } catch (error) {
+        loading.style.display = 'none';
+        errorDiv.textContent = 'Error loading configuration: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function populateForm(config) {
+    const filters = config.filters || {};
+    
+    // Exclude IPs
+    const excludeIps = filters.exclude_ips || [];
+    document.getElementById('exclude-ips').value = excludeIps.join('\n');
+    
+    // Exclude ranges
+    const excludeRanges = filters.exclude_ip_ranges || [];
+    document.getElementById('exclude-ranges').value = excludeRanges.join('\n');
+    
+    // Exclude patterns
+    const customRules = filters.custom_rules || {};
+    const excludePatterns = customRules.exclude_patterns || [];
+    document.getElementById('exclude-patterns').value = excludePatterns.join('\n');
+    
+    // IP Filter Type
+    const ipFilterType = filters.ip_filter_type || 'private'; // default to private
+    document.getElementById(`filter-${ipFilterType}`).checked = true;
+    
+    // Known Suffixes
+    const knownSuffixes = config.known_suffixes || [];
+    document.getElementById('known-suffixes').value = knownSuffixes.join('\n');
+}
+
+async function saveConfig() {
+    const errorDiv = document.getElementById('error-message');
+    const successDiv = document.getElementById('success-message');
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    try {
+        // Collect form data
+        const ipFilterType = document.querySelector('input[name="ip-filter-type"]:checked').value;
+        
+        const excludeIpsText = document.getElementById('exclude-ips').value.trim();
+        const excludeIps = excludeIpsText ? excludeIpsText.split('\n').map(ip => ip.trim()).filter(ip => ip) : [];
+        
+        const excludeRangesText = document.getElementById('exclude-ranges').value.trim();
+        const excludeRanges = excludeRangesText ? excludeRangesText.split('\n').map(range => range.trim()).filter(range => range) : [];
+        
+        const excludePatternsText = document.getElementById('exclude-patterns').value.trim();
+        const excludePatterns = excludePatternsText ? excludePatternsText.split('\n').map(pattern => pattern.trim()).filter(pattern => pattern) : [];
+        
+        const knownSuffixesText = document.getElementById('known-suffixes').value.trim();
+        const knownSuffixes = knownSuffixesText ? knownSuffixesText.split('\n').map(suffix => suffix.trim()).filter(suffix => suffix) : [];
+        
+        // Build config object
+        const config = {
+            description: "Settings configuration for NetScaler virtual servers",
+            filters: {
+                exclude_ips: excludeIps,
+                exclude_ip_ranges: excludeRanges,
+                ip_filter_type: ipFilterType,
+                custom_rules: {
+                    description: "Additional custom filtering rules",
+                    exclude_patterns: excludePatterns
+                }
+            },
+            known_suffixes: knownSuffixes
+        };
+        
+        // Save config
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = 'Configuration saved successfully! Changes will take effect on next data refresh.';
+            successDiv.style.display = 'block';
+            currentConfig = config;
+        } else {
+            throw new Error(data.error || 'Failed to save configuration');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Error saving configuration: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function resetConfig() {
+    const defaultConfig = {
+        filters: {
+            exclude_ips: ["0.0.0.0"],
+            exclude_ip_ranges: ["10.70."],
+            ip_filter_type: "private",
+            custom_rules: {
+                exclude_patterns: []
+            }
+        },
+        known_suffixes: []
+    };
+    
+    populateForm(defaultConfig);
+}
+
+function resetKnownSuffixes() {
+    const defaultSuffixes = [];
+    
+    document.getElementById('known-suffixes').value = defaultSuffixes.join('\n');
+}
+
+
+// DNS file management
+async function loadDnsFiles() {
+    const loading = document.getElementById('loading-dns');
+    const errorDiv = document.getElementById('error-dns');
+    const filesList = document.getElementById('dns-files-list');
+    
+    if (loading) loading.style.display = 'block';
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/dns-files');
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayDnsFiles(data.files);
+            if (loading) loading.style.display = 'none';
+        } else {
+            throw new Error(data.error || 'Failed to load DNS files');
+        }
+    } catch (error) {
+        if (loading) loading.style.display = 'none';
+        if (errorDiv) {
+            errorDiv.textContent = 'Error loading DNS files: ' + error.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+}
+
+function displayDnsFiles(files) {
+    const filesList = document.getElementById('dns-files-list');
+    
+    if (files.length === 0) {
+        filesList.innerHTML = '<div class="empty-state">No DNS zone files uploaded yet</div>';
+        return;
+    }
+    
+    filesList.innerHTML = files.map(file => `
+        <div class="file-item">
+            <div class="file-info">
+                <div class="file-name">${file.filename}</div>
+                <div class="file-meta">${formatFileSize(file.size)} • Modified: ${new Date(file.modified * 1000).toLocaleString()}</div>
+            </div>
+            <div class="file-actions">
+                <button class="btn-delete" onclick="deleteDnsFile('${file.filename}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function uploadDnsFiles() {
+    const fileInput = document.getElementById('dns-file-input');
+    const errorDiv = document.getElementById('error-dns');
+    const successDiv = document.getElementById('success-dns');
+    
+    if (fileInput.files.length === 0) {
+        errorDiv.textContent = 'Please select files to upload';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    const formData = new FormData();
+    for (let file of fileInput.files) {
+        formData.append('files', file);
+    }
+    
+    try {
+        const response = await fetch('/api/dns-files', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = data.message;
+            successDiv.style.display = 'block';
+            fileInput.value = ''; // Clear file input
+            loadDnsFiles(); // Reload file list
+        } else {
+            throw new Error(data.error || 'Upload failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Upload failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+async function deleteDnsFile(filename) {
+    if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+        return;
+    }
+    
+    const errorDiv = document.getElementById('error-dns');
+    const successDiv = document.getElementById('success-dns');
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/api/dns-files/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = data.message;
+            successDiv.style.display = 'block';
+            loadDnsFiles(); // Reload file list
+        } else {
+            throw new Error(data.error || 'Delete failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Delete failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+async function rebuildDnsMapping() {
+    const button = document.getElementById('rebuild-dns-btn');
+    const errorDiv = document.getElementById('error-dns');
+    const successDiv = document.getElementById('success-dns');
+    
+    // Confirm action
+    if (!confirm('Are you sure you want to rebuild DNS mapping? This will clear the cache and recreate mapping from zone files.')) {
+        return;
+    }
+    
+    button.disabled = true;
+    button.textContent = '🔄 Rebuilding...';
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/dns-rebuild', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = data.message + ' - Domain extensions should now be clean.';
+            successDiv.style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Rebuild failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Rebuild failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    } finally {
+        button.disabled = false;
+        button.textContent = '🔄 Force Rebuild DNS Mapping';
+    }
+}
+
+// Kubernetes Clusters functions
+async function loadClusterStatus() {
+    const statusDiv = document.getElementById('cluster-status');
+    const errorDiv = document.getElementById('error-clusters');
+    
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/clusters/status');
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayClusterStatus(data);
+        } else {
+            throw new Error(data.error || 'Failed to load cluster status');
+        }
+    } catch (error) {
+        statusDiv.innerHTML = '<div class="empty-state">Unable to load cluster status</div>';
+    }
+}
+
+function displayClusterStatus(data) {
+    const statusDiv = document.getElementById('cluster-status');
+    
+    if (data.has_cache) {
+        const lastModified = data.last_modified ? new Date(data.last_modified * 1000).toLocaleString() : 'Unknown';
+        statusDiv.innerHTML = `
+            <div class="cluster-info">
+                <span class="cluster-info-label">Cache Status:</span>
+                <span class="cluster-info-value" style="color: #27ae60;">✓ Cached</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Number of Clusters:</span>
+                <span class="cluster-info-value">${data.cluster_count || 0}</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Number of IPs Mapped:</span>
+                <span class="cluster-info-value">${data.ip_count || 0}</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Last Synchronized:</span>
+                <span class="cluster-info-value">${lastModified}</span>
+            </div>
+        `;
+    } else {
+        statusDiv.innerHTML = `
+            <div class="cluster-info">
+                <span class="cluster-info-label">Cache Status:</span>
+                <span class="cluster-info-value" style="color: #e74c3c;">✗ Not Cached</span>
+            </div>
+            <div style="margin-top: 0.5rem; color: #7f8c8d; font-size: 0.9rem;">
+                No cluster data cached. Click "Sync Clusters from ELCHI" to fetch cluster information.
+            </div>
+        `;
+    }
+}
+
+async function syncClusters() {
+    const button = document.getElementById('sync-clusters-btn');
+    const errorDiv = document.getElementById('error-clusters');
+    const successDiv = document.getElementById('success-clusters');
+    const loadingDiv = document.getElementById('loading-clusters');
+    
+    button.disabled = true;
+    button.textContent = '🔄 Syncing...';
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    loadingDiv.style.display = 'block';
+    
+    try {
+        const response = await fetch('/api/clusters/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = data.message || 'Clusters synchronized successfully';
+            successDiv.style.display = 'block';
+            // Reload cluster status
+            await loadClusterStatus();
+        } else {
+            throw new Error(data.error || 'Sync failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Sync failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    } finally {
+        button.disabled = false;
+        button.textContent = '🔄 Sync Clusters from ELCHI';
+        loadingDiv.style.display = 'none';
+    }
+}
+
+async function clearClustersCache() {
+    if (!confirm('Are you sure you want to clear the clusters cache? This will remove all cached cluster data.')) {
+        return;
+    }
+    
+    const errorDiv = document.getElementById('error-clusters');
+    const successDiv = document.getElementById('success-clusters');
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/clusters/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = 'Clusters cache cleared successfully';
+            successDiv.style.display = 'block';
+            // Reload cluster status
+            await loadClusterStatus();
+        } else {
+            throw new Error(data.error || 'Clear failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Clear failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// VServer Statistics functions
+async function loadStatsStatus() {
+    const statusDiv = document.getElementById('stats-status');
+    const errorDiv = document.getElementById('error-stats');
+    
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/vserver-stats/status');
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayStatsStatus(data);
+        } else {
+            throw new Error(data.error || 'Failed to load stats status');
+        }
+    } catch (error) {
+        statusDiv.innerHTML = '<div class="empty-state">Unable to load stats status</div>';
+    }
+}
+
+function displayStatsStatus(data) {
+    const statusDiv = document.getElementById('stats-status');
+    
+    if (data.has_cache) {
+        const lastModified = data.last_modified ? new Date(data.last_modified * 1000).toLocaleString() : 'Unknown';
+        statusDiv.innerHTML = `
+            <div class="cluster-info">
+                <span class="cluster-info-label">Cache Status:</span>
+                <span class="cluster-info-value" style="color: #27ae60;">✓ Cached</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Number of VServers:</span>
+                <span class="cluster-info-value">${data.vserver_count || 0}</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Total Requests Tracked:</span>
+                <span class="cluster-info-value">${data.total_requests || 0}</span>
+            </div>
+            <div class="cluster-info">
+                <span class="cluster-info-label">Last Synchronized:</span>
+                <span class="cluster-info-value">${lastModified}</span>
+            </div>
+        `;
+    } else {
+        statusDiv.innerHTML = `
+            <div class="cluster-info">
+                <span class="cluster-info-label">Cache Status:</span>
+                <span class="cluster-info-value" style="color: #e74c3c;">✗ Not Cached</span>
+            </div>
+            <div style="margin-top: 0.5rem; color: #7f8c8d; font-size: 0.9rem;">
+                No statistics cached. Click "Sync VServer Statistics" to fetch request counts from NetScaler.
+            </div>
+        `;
+    }
+}
+
+async function syncStats() {
+    const button = document.getElementById('sync-stats-btn');
+    const errorDiv = document.getElementById('error-stats');
+    const successDiv = document.getElementById('success-stats');
+    const loadingDiv = document.getElementById('loading-stats');
+    
+    button.disabled = true;
+    button.textContent = '📊 Syncing...';
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    loadingDiv.style.display = 'block';
+    
+    try {
+        const response = await fetch('/api/vserver-stats/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = data.message || 'VServer statistics synchronized successfully';
+            successDiv.style.display = 'block';
+            // Reload stats status
+            await loadStatsStatus();
+        } else {
+            throw new Error(data.error || 'Sync failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Sync failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    } finally {
+        button.disabled = false;
+        button.textContent = '📊 Sync VServer Statistics';
+        loadingDiv.style.display = 'none';
+    }
+}
+
+async function clearStatsCache() {
+    if (!confirm('Are you sure you want to clear the VServer statistics cache? This will remove all cached request data.')) {
+        return;
+    }
+    
+    const errorDiv = document.getElementById('error-stats');
+    const successDiv = document.getElementById('success-stats');
+    
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/vserver-stats/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            successDiv.textContent = 'VServer statistics cache cleared successfully';
+            successDiv.style.display = 'block';
+            // Reload stats status
+            await loadStatsStatus();
+        } else {
+            throw new Error(data.error || 'Clear failed');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Clear failed: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    loadConfig();
+    loadDnsFiles();
+    loadClusterStatus();
+    loadStatsStatus();
+    
+    document.getElementById('save-config').addEventListener('click', saveConfig);
+    document.getElementById('reset-config').addEventListener('click', resetConfig);
+    
+    // Known suffixes management
+    document.getElementById('save-suffixes').addEventListener('click', saveConfig); // Same function
+    document.getElementById('reset-suffixes').addEventListener('click', resetKnownSuffixes);
+    
+    // DNS file upload
+    document.getElementById('upload-dns-btn').addEventListener('click', uploadDnsFiles);
+    
+    // DNS rebuild
+    document.getElementById('rebuild-dns-btn').addEventListener('click', rebuildDnsMapping);
+    
+    // Kubernetes Clusters
+    document.getElementById('sync-clusters-btn').addEventListener('click', syncClusters);
+    document.getElementById('clear-clusters-btn').addEventListener('click', clearClustersCache);
+    
+    // VServer Statistics
+    document.getElementById('sync-stats-btn').addEventListener('click', syncStats);
+    document.getElementById('clear-stats-btn').addEventListener('click', clearStatsCache);
+    
+    // File input change
+    document.getElementById('dns-file-input').addEventListener('change', function() {
+        const fileCount = this.files.length;
+        if (fileCount > 0) {
+            document.querySelector('.upload-text strong').textContent = `${fileCount} file(s) selected`;
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{
+    "general": {
+        "name": "{{clustername_port}}",
+        "version": "{{version}}",
+        "type": "cluster",
+        "gtype": "envoy.config.cluster.v3.Cluster",
+        "project": "{{project}}",
+        "canonical_name": "config.cluster.v3.Cluster",
+        "metadata": {},
+        "category": "cluster",
+        "permissions": {
+            "users": [],
+            "groups": []
+        },
+        "config_discovery": [],
+        "collection": "clusters",
+        "elchi_discovery": []
+    },
+    "resource": {
+        "resource": {
+            "name": "{{clustername_port}}",
+            "type": "EDS",
+            "eds_cluster_config": {
+                "eds_config": {
+                    "ads": {},
+                    "initial_fetch_timeout": "2.0s",
+                    "resource_api_version": "V3"
+                },
+                "service_name": "{{clustername_port}}"
+            },
+            "connect_timeout": "2.0s",
+            "lb_policy": "LEAST_REQUEST",
+            "health_checks": [
+                {
+                    "timeout": "2.0s",
+                    "interval": "10.0s",
+                    "unhealthy_threshold": 2,
+                    "healthy_threshold": 1,
+                    "tcp_health_check": {}
+                }
+            ]{{ssl_transport_socket}}
+        },
+        "version": "1"
+    }
+}

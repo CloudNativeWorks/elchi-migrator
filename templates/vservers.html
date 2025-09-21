@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Virtual Servers - NetScaler Config Viewer{% endblock %}
+
+{% block content %}
+<div class="vservers-container">
+    <div class="header-actions">
+        <h2>Virtual Servers</h2>
+        <div class="actions">
+            <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+        </div>
+    </div>
+    
+    <div id="loading" class="loading">Loading virtual servers...</div>
+    <div id="error-message" class="error-message" style="display: none;"></div>
+    
+    <div id="stats" class="stats" style="display: none;">
+        <span>Total Virtual Servers: <strong id="totalCount">0</strong></span>
+        <span>LB: <strong id="lbCount">0</strong></span>
+        <span>CS: <strong id="csCount">0</strong></span>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs" id="tabsContainer" style="display: none;">
+        <button class="tab-button active" data-tab="lb">LB Virtual Servers (<span id="lbTabCount">0</span>)</button>
+        <button class="tab-button" data-tab="cs">CS Virtual Servers (<span id="csTabCount">0</span>)</button>
+    </div>
+    
+    <!-- LB Table -->
+    <div class="tab-content active" id="lbTab" style="display: none;">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="name">Name <span class="sort-icon">⇅</span></th>
+                        <th class="sortable" data-column="protocol">Protocol <span class="sort-icon">⇅</span></th>
+                        <th>IP Address</th>
+                        <th class="sortable" data-column="port">Port <span class="sort-icon">⇅</span></th>
+                        <th class="sortable" data-column="state">State <span class="sort-icon">⇅</span></th>
+                        <th>Health</th>
+                        <th>Domains</th>
+                        <th class="sortable" data-column="total_requests">Total Requests <span class="sort-icon">⇅</span></th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="lbVserversBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- CS Table -->
+    <div class="tab-content" id="csTab" style="display: none;">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="sortable" data-column="name">Name <span class="sort-icon">⇅</span></th>
+                        <th class="sortable" data-column="protocol">Protocol <span class="sort-icon">⇅</span></th>
+                        <th>IP Address</th>
+                        <th class="sortable" data-column="port">Port <span class="sort-icon">⇅</span></th>
+                        <th class="sortable" data-column="state">State <span class="sort-icon">⇅</span></th>
+                        <th>Domains</th>
+                        <th class="sortable" data-column="total_requests">Total Requests <span class="sort-icon">⇅</span></th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="csVserversBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.tabs {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    margin-top: 1rem;
+    margin-bottom: 0;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 1rem 2rem;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #7f8c8d;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab-button:hover {
+    background-color: #f8f9fa;
+}
+
+.tab-button.active {
+    color: #2c3e50;
+    border-bottom-color: #3498db;
+    font-weight: 600;
+}
+
+.tab-content {
+    display: none !important;
+    padding-top: 1rem;
+}
+
+.tab-content.active {
+    display: block !important;
+}
+
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sort-icon {
+    font-size: 0.8rem;
+    color: #95a5a6;
+    margin-left: 0.3rem;
+}
+
+.sortable.sort-asc .sort-icon:after {
+    content: "↑";
+    color: #3498db;
+}
+
+.sortable.sort-desc .sort-icon:after {
+    content: "↓";
+    color: #3498db;
+}
+
+.sortable.sort-asc .sort-icon,
+.sortable.sort-desc .sort-icon {
+    color: transparent;
+}
+
+.complete-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background-color 0.2s;
+}
+
+.complete-btn:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.complete-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.completed-badge {
+    background-color: #28a745;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+</style>
+
+<script>
+let lbVservers = [];
+let csVservers = [];
+let completedVServers = {};
+let currentSort = {
+    lb: { column: null, direction: 'asc' },
+    cs: { column: null, direction: 'asc' }
+};
+
+let vserverStats = {};
+
+async function loadVServerStats() {
+    try {
+        const response = await fetch('/api/vserver-stats/status');
+        const data = await response.json();
+        
+        console.log('Stats status response:', data);
+        
+        if (data.has_cache) {
+            // Load the actual stats data
+            const statsResponse = await fetch('/config/vserver_stats.json');
+            console.log('Stats file response status:', statsResponse.status);
+            
+            if (statsResponse.ok) {
+                vserverStats = await statsResponse.json();
+                console.log('Loaded vserver stats:', Object.keys(vserverStats).length, 'vservers');
+                console.log('Sample stats:', Object.fromEntries(Object.entries(vserverStats).slice(0, 3)));
+            } else {
+                console.log('Failed to fetch stats file:', statsResponse.statusText);
+            }
+        } else {
+            console.log('No stats cache available');
+        }
+    } catch (error) {
+        console.log('Failed to load vserver stats:', error);
+        vserverStats = {};
+    }
+}
+
+function mergeStatsWithVServers(vservers) {
+    vservers.forEach(vserver => {
+        const statsValue = vserverStats[vserver.name];
+        if (statsValue !== undefined) {
+            vserver.total_requests = statsValue;
+        } else {
+            // Keep existing value or set to 0
+            if (vserver.total_requests === undefined) {
+                vserver.total_requests = 0;
+            }
+        }
+    });
+}
+
+async function loadVServers(forceRefresh = false) {
+    const loading = document.getElementById('loading');
+    const errorDiv = document.getElementById('error-message');
+    const tabsContainer = document.getElementById('tabsContainer');
+    const lbTab = document.getElementById('lbTab');
+    const csTab = document.getElementById('csTab');
+    const stats = document.getElementById('stats');
+    
+    loading.style.display = 'block';
+    errorDiv.style.display = 'none';
+    tabsContainer.style.display = 'none';
+    lbTab.style.display = 'none';
+    csTab.style.display = 'none';
+    stats.style.display = 'none';
+    
+    try {
+        // Load completion status and vserver stats
+        await Promise.all([
+            loadCompletionStatus(),
+            loadVServerStats()
+        ]);
+        
+        // Add nocache parameter if forceRefresh is true
+        const cacheParam = forceRefresh ? '?from_cache=false' : '';
+        
+        // Load all vservers with new API
+        const response = await fetch(`/api/vservers${cacheParam}`);
+        const data = await response.json();
+        
+        if (response.ok && !data.error) {
+            // Handle both old combined format and new separate format for compatibility
+            if (data.vservers) {
+                // Combined format (new API matching routes_old.py)
+                const allVservers = data.vservers;
+                lbVservers = allVservers.filter(v => v.type === 'LB');
+                csVservers = allVservers.filter(v => v.type === 'CS');
+            } else {
+                // Separate format (fallback)
+                lbVservers = data.lb_vservers || [];
+                csVservers = data.cs_vservers || [];
+            }
+            
+            // Merge stats data with vserver data
+            mergeStatsWithVServers(lbVservers);
+            mergeStatsWithVServers(csVservers);
+            
+            displayLBVServers(lbVservers);
+            displayCSVServers(csVservers);
+            updateStats(lbVservers, csVservers);
+            
+            loading.style.display = 'none';
+            tabsContainer.style.display = 'flex';
+            stats.style.display = 'flex';
+            
+            // Show LB tab by default
+            showTab('lb');
+        } else {
+            throw new Error('Failed to load virtual servers');
+        }
+    } catch (error) {
+        loading.style.display = 'none';
+        errorDiv.textContent = 'Error: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function displayLBVServers(vservers) {
+    const tbody = document.getElementById('lbVserversBody');
+    tbody.innerHTML = '';
+    
+    // Apply sorting if any
+    let sortedVservers = [...vservers];
+    if (currentSort.lb.column) {
+        sortedVservers = sortVServers(sortedVservers, currentSort.lb.column, currentSort.lb.direction);
+    } else {
+        // Default sort by state: UP first, then others
+        sortedVservers = vservers.sort((a, b) => {
+            const stateA = a.state.toUpperCase();
+            const stateB = b.state.toUpperCase();
+            
+            if (stateA === 'UP' && stateB !== 'UP') return -1;
+            if (stateA !== 'UP' && stateB === 'UP') return 1;
+            
+            // If both are same state, sort by name
+            return a.name.localeCompare(b.name);
+        });
+    }
+    
+    sortedVservers.forEach(vserver => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td><a href="/vserver-analysis/lb/${encodeURIComponent(vserver.name)}" class="vserver-link">${vserver.name}</a></td>
+            <td>${vserver.protocol}</td>
+            <td class="ip-address">${vserver.ip}</td>
+            <td>${vserver.port}</td>
+            <td><span class="state state-${vserver.state.toLowerCase()}">${vserver.state}</span></td>
+            <td>${vserver.health}</td>
+            <td class="domains-cell">${formatDomains(vserver.domains)}</td>
+            <td class="request-stats">
+                ${formatNumber(vserver.total_requests)}
+            </td>
+            <td>
+                ${getStatusColumn(vserver.name, 'lb')}
+            </td>
+        `;
+    });
+    
+    document.getElementById('lbTabCount').textContent = vservers.length;
+}
+
+function displayCSVServers(vservers) {
+    const tbody = document.getElementById('csVserversBody');
+    tbody.innerHTML = '';
+    
+    // Apply sorting if any
+    let sortedVservers = [...vservers];
+    if (currentSort.cs.column) {
+        sortedVservers = sortVServers(sortedVservers, currentSort.cs.column, currentSort.cs.direction);
+    } else {
+        // Default sort by state: UP first, then others
+        sortedVservers = vservers.sort((a, b) => {
+            const stateA = a.state.toUpperCase();
+            const stateB = b.state.toUpperCase();
+            
+            if (stateA === 'UP' && stateB !== 'UP') return -1;
+            if (stateA !== 'UP' && stateB === 'UP') return 1;
+            
+            // If both are same state, sort by name
+            return a.name.localeCompare(b.name);
+        });
+    }
+    
+    sortedVservers.forEach(vserver => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td><a href="/vserver-analysis/cs/${encodeURIComponent(vserver.name)}" class="vserver-link">${vserver.name}</a></td>
+            <td>${vserver.protocol}</td>
+            <td class="ip-address">${vserver.ip}</td>
+            <td>${vserver.port}</td>
+            <td><span class="state state-${vserver.state.toLowerCase()}">${vserver.state}</span></td>
+            <td class="domains-cell">${formatDomains(vserver.domains)}</td>
+            <td class="request-stats">
+                ${formatNumber(vserver.total_requests)}
+            </td>
+            <td>
+                ${getStatusColumn(vserver.name, 'cs')}
+            </td>
+        `;
+    });
+    
+    document.getElementById('csTabCount').textContent = vservers.length;
+}
+
+function sortVServers(vservers, column, direction) {
+    return vservers.sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (column) {
+            case 'name':
+                valueA = a.name.toLowerCase();
+                valueB = b.name.toLowerCase();
+                break;
+            case 'port':
+                valueA = parseInt(a.port) || 0;
+                valueB = parseInt(b.port) || 0;
+                break;
+            case 'total_requests':
+                valueA = parseInt(a.total_requests) || 0;
+                valueB = parseInt(b.total_requests) || 0;
+                break;
+            default:
+                return 0;
+        }
+        
+        if (valueA < valueB) return direction === 'asc' ? -1 : 1;
+        if (valueA > valueB) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+
+function handleSort(column, tableType) {
+    const currentSortState = currentSort[tableType];
+    
+    // Toggle direction if same column, otherwise set to asc
+    if (currentSortState.column === column) {
+        currentSortState.direction = currentSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortState.column = column;
+        currentSortState.direction = 'asc';
+    }
+    
+    // Update header styles
+    updateSortHeaders(tableType);
+    
+    // Re-display data with new sorting
+    if (tableType === 'lb') {
+        displayLBVServers(lbVservers);
+    } else {
+        displayCSVServers(csVservers);
+    }
+}
+
+function updateSortHeaders(tableType) {
+    const tableSelector = tableType === 'lb' ? '#lbTab' : '#csTab';
+    const headers = document.querySelectorAll(`${tableSelector} .sortable`);
+    
+    headers.forEach(header => {
+        header.classList.remove('sort-asc', 'sort-desc');
+        const column = header.dataset.column;
+        const currentSortState = currentSort[tableType];
+        
+        if (currentSortState.column === column) {
+            header.classList.add(`sort-${currentSortState.direction}`);
+        }
+    });
+}
+
+async function loadCompletionStatus() {
+    try {
+        const response = await fetch('/api/vserver-completion');
+        if (response.ok) {
+            const data = await response.json();
+            completedVServers = data.completed || {};
+        }
+    } catch (error) {
+        console.log('Could not load completion status:', error);
+        completedVServers = {};
+    }
+}
+
+function getStatusColumn(vserverName, type) {
+    const key = `${type}_${vserverName}`;
+    if (completedVServers[key]) {
+        return '<span class="completed-badge">Completed</span>';
+    } else {
+        return `<button class="complete-btn" disabled title="Auto-completed when templates are successfully sent to ELCHI">Complete</button>`;
+    }
+}
+
+async function markAsCompleted(vserverName, type) {
+    const key = `${type}_${vserverName}`;
+    completedVServers[key] = true;
+    
+    try {
+        const response = await fetch('/api/vserver-completion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                vserver: vserverName,
+                type: type,
+                completed: true
+            })
+        });
+        
+        if (response.ok) {
+            // Refresh the display
+            if (type === 'lb') {
+                displayLBVServers(lbVservers);
+            } else {
+                displayCSVServers(csVservers);
+            }
+        } else {
+            alert('Failed to save completion status');
+            delete completedVServers[key]; // Revert on error
+        }
+    } catch (error) {
+        alert('Error saving completion status: ' + error.message);
+        delete completedVServers[key]; // Revert on error
+    }
+}
+
+function updateStats(lbVservers, csVservers) {
+    const total = lbVservers.length + csVservers.length;
+    document.getElementById('totalCount').textContent = total;
+    document.getElementById('lbCount').textContent = lbVservers.length;
+    document.getElementById('csCount').textContent = csVservers.length;
+}
+
+function showTab(tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+    
+    // Add active class to selected tab
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    const targetTab = document.getElementById(`${tabName}Tab`);
+    targetTab.classList.add('active');
+    targetTab.style.display = 'block';
+}
+
+function formatNumber(num) {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+}
+
+function formatDomains(domains) {
+    if (!domains || domains.length === 0) {
+        return '<span class="no-domains">-</span>';
+    }
+    
+    if (domains.length === 1) {
+        return `<span class="domain-name">${domains[0]}</span>`;
+    }
+    
+    if (domains.length <= 3) {
+        return domains.map(domain => `<span class="domain-name">${domain}</span>`).join('<br>');
+    }
+    
+    // Show first 2 domains + count
+    const firstTwo = domains.slice(0, 2).map(domain => `<span class="domain-name">${domain}</span>`).join('<br>');
+    const remaining = domains.length - 2;
+    return `${firstTwo}<br><span class="domain-count">+${remaining} more</span>`;
+}
+
+// Tab switching and sort handlers
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            showTab(button.dataset.tab);
+        });
+    });
+    
+    // Add sort handlers for LB table
+    document.querySelectorAll('#lbTab .sortable').forEach(header => {
+        header.addEventListener('click', () => {
+            handleSort(header.dataset.column, 'lb');
+        });
+    });
+    
+    // Add sort handlers for CS table
+    document.querySelectorAll('#csTab .sortable').forEach(header => {
+        header.addEventListener('click', () => {
+            handleSort(header.dataset.column, 'cs');
+        });
+    });
+});
+
+document.getElementById('refreshBtn').addEventListener('click', () => loadVServers(true));
+
+
+// Load vservers on page load
+loadVServers();
+</script>
+
+<style>
+</style>
+{% endblock %}

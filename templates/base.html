@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Elchi Migration Tool{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- CodeMirror for JSON display -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/brace-fold.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.css">
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>Elchi Migration Tool</h1>
+            <div class="nav-right">
+                <div class="nav-links">
+                    <a href="/vservers" class="nav-link">Virtual Servers</a>
+                    <a href="/settings" class="nav-link">Settings</a>
+                </div>
+                <div class="login-controls">
+                    <div id="netscaler-login" class="login-section">
+                        <span class="login-label">NetScaler:</span>
+                        <span id="netscaler-status" class="status-disconnected">Disconnected</span>
+                        <button id="netscaler-login-btn" class="btn btn-sm btn-primary" onclick="showNetScalerLogin()">Login</button>
+                    </div>
+                    <div id="elchi-login" class="login-section">
+                        <span class="login-label">ELCHI:</span>
+                        <span id="elchi-status" class="status-disconnected">Disconnected</span>
+                        <button id="elchi-login-btn" class="btn btn-sm btn-primary" onclick="showElchiLogin()">Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Login Modals -->
+    <div id="netscaler-login-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('netscaler-login-modal')">&times;</span>
+            <h3>NetScaler Login</h3>
+            <form id="netscaler-login-form">
+                <div class="form-group">
+                    <label>NetScaler URL:</label>
+                    <input type="text" id="ns-host" required placeholder="https://10.4.4.4:8010 or http://netscaler.com">
+                </div>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="ns-username" required placeholder="nsroot">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="ns-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Connect</button>
+                <div id="ns-error" class="error-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="elchi-login-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('elchi-login-modal')">&times;</span>
+            <h3>ELCHI Login</h3>
+            <form id="elchi-login-form">
+                <div class="form-group">
+                    <label>ELCHI URL:</label>
+                    <input type="text" id="elchi-host" required placeholder="https://elchi.example.com:8443 or http://elchi.local">
+                </div>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="elchi-username" required placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="elchi-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Connect</button>
+                <div id="elchi-error" class="error-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <script>
+        // Set active navigation link based on current path
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            navLinks.forEach(link => {
+                // Remove active class from all links
+                link.classList.remove('active');
+                
+                // Add active class to matching link
+                if (currentPath === '/settings' && link.getAttribute('href') === '/settings') {
+                    link.classList.add('active');
+                } else if (currentPath !== '/settings' && link.getAttribute('href') === '/vservers') {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
