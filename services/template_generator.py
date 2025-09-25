@@ -291,7 +291,12 @@ def generate_cs_virtual_hosts_new(analysis_result, template_clustername, templat
         for domain in domains:
             if domain not in domain_policies:
                 domain_policies[domain] = []
-            domain_policies[domain].append(policy)
+            # Avoid adding the same policy multiple times for the same domain
+            if policy not in domain_policies[domain]:
+                domain_policies[domain].append(policy)
+            else:
+                if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
+                    print(f"DEBUG: Skipping duplicate policy '{policy.get('policyname', '')}' for domain '{domain}'")
     
     if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
         print(f"DEBUG: Grouped policies into {len(domain_policies)} domains: {list(domain_policies.keys())}")
@@ -315,7 +320,8 @@ def generate_cs_virtual_hosts_new(analysis_result, template_clustername, templat
         # Process each policy in priority order to create routes
         for policy in policies:
             policy_routes = create_routes_for_policy(policy, unique_clusters, target_vserver_details, template_clustername, template_port, text_replace_from, text_replace_to)
-            routes.extend(policy_routes)
+            # Add routes but avoid duplicates
+            add_routes_without_duplicates(routes, policy_routes)
         
         # Add default route for default LB vserver only for wildcard domains
         # Default LB handles requests that don't match any specific policy
@@ -336,7 +342,8 @@ def generate_cs_virtual_hosts_new(analysis_result, template_clustername, templat
                     "match": {"prefix": "/"},
                     "route": {"cluster": default_cluster_name}
                 }
-                routes.append(default_route)
+                # Use duplicate check for default route too
+                add_routes_without_duplicates(routes, [default_route])
                 if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
                     print(f"DEBUG: Added default route for wildcard domain -> cluster {default_cluster_name}")
 
@@ -375,6 +382,29 @@ def generate_cs_virtual_hosts_new(analysis_result, template_clustername, templat
                 print(f"DEBUG: Created default virtual host for default LB -> cluster {default_cluster_name}")
     
     return virtual_hosts
+
+
+def add_routes_without_duplicates(existing_routes, new_routes):
+    """Add routes to existing list but avoid duplicates based on match and cluster"""
+    for new_route in new_routes:
+        # Check if this route already exists
+        is_duplicate = False
+        new_match = new_route.get('match', {})
+        new_cluster = new_route.get('route', {}).get('cluster', '')
+        
+        for existing_route in existing_routes:
+            existing_match = existing_route.get('match', {})
+            existing_cluster = existing_route.get('route', {}).get('cluster', '')
+            
+            # Compare match and cluster
+            if new_match == existing_match and new_cluster == existing_cluster:
+                is_duplicate = True
+                print(f"DEBUG: Skipping duplicate route - match: {new_match}, cluster: {new_cluster}")
+                break
+        
+        if not is_duplicate:
+            existing_routes.append(new_route)
+            print(f"DEBUG: Added route - match: {new_match}, cluster: {new_cluster}")
 
 
 def create_routes_for_policy(policy, unique_clusters, target_vserver_details, template_clustername, template_port, text_replace_from=None, text_replace_to=''):
