@@ -600,6 +600,83 @@ def get_backend_signature(target_lb, vserver_details_dict):
     return signature
 
 
+def check_service_states_for_ips(target_vserver_details, target_ips, target_lb):
+    """Check if any service for the given IPs has UP state"""
+    if isinstance(target_vserver_details, dict) and target_lb in target_vserver_details:
+        details = target_vserver_details[target_lb]
+    elif isinstance(target_vserver_details, dict) and 'services' in target_vserver_details:
+        details = target_vserver_details
+    else:
+        return True  # Default to True if no details available
+    
+    services = details.get('services', [])
+    servicegroups = details.get('servicegroups', [])
+    
+    # Check services
+    for service in services:
+        service_ip = service.get('ip', '')
+        service_state = service.get('state', '').upper()
+        if service_ip in target_ips and service_state == 'UP':
+            return True
+    
+    # Check servicegroup members  
+    for sg in servicegroups:
+        for member in sg.get('members', []):
+            member_ip = member.get('ip', '')
+            member_state = member.get('state', '').upper()
+            if member_ip in target_ips and member_state == 'UP':
+                return True
+    
+    return False
+
+
+def get_ip_state_map(target_vserver_details, target_lb):
+    """Create a map of IP addresses to their states"""
+    ip_state_map = {}
+    
+    if isinstance(target_vserver_details, dict) and target_lb in target_vserver_details:
+        details = target_vserver_details[target_lb]
+    elif isinstance(target_vserver_details, dict) and 'services' in target_vserver_details:
+        details = target_vserver_details
+    else:
+        return ip_state_map
+    
+    services = details.get('services', [])
+    servicegroups = details.get('servicegroups', [])
+    
+    # Map services IP states
+    for service in services:
+        service_ip = service.get('ip', '')
+        service_state = service.get('state', '').upper()
+        if service_ip:
+            ip_state_map[service_ip] = service_state
+            print(f"DEBUG: Service IP {service_ip} has state {service_state}")
+    
+    # Map servicegroup member states
+    for sg in servicegroups:
+        for member in sg.get('members', []):
+            member_ip = member.get('ip', '')
+            member_state = member.get('state', '').upper()
+            if member_ip:
+                ip_state_map[member_ip] = member_state
+                print(f"DEBUG: ServiceGroup member IP {member_ip} has state {member_state}")
+    
+    return ip_state_map
+
+
+def check_ip_has_up_state(cluster_info, target_ip):
+    """Check if a specific IP has UP state in services"""
+    # Use IP state map if available
+    ip_state_map = cluster_info.get('ip_state_map', {})
+    
+    if target_ip in ip_state_map:
+        state = ip_state_map.get(target_ip, 'UNKNOWN')
+        return state == 'UP'
+    
+    # Fallback to general UP state
+    return cluster_info.get('has_up_services', True)
+
+
 def generate_cluster_info_for_signature(signature, target_lb, target_vserver_details, cluster_matches=None, text_replace_from=None, text_replace_to=''):
     """Generate cluster information based on backend signature"""
     if not signature:
@@ -610,6 +687,12 @@ def generate_cluster_info_for_signature(signature, target_lb, target_vserver_det
     
     all_ips = {ip for ip, port in ip_ports}
     ports = {port for ip, port in ip_ports}
+    
+    # Check service states for UP/DOWN filtering
+    has_up_services = check_service_states_for_ips(target_vserver_details, all_ips, target_lb)
+    
+    # Get IP state map for individual IP state checks
+    ip_state_map = get_ip_state_map(target_vserver_details, target_lb)
     
     # Generate hash for uniqueness (sorted for consistency)
     import hashlib
@@ -680,7 +763,9 @@ def generate_cluster_info_for_signature(signature, target_lb, target_vserver_det
         'ip_port_combinations': list(ip_ports),
         'signature': signature,
         'service_names': list(service_names),
-        'common_name': common_name
+        'common_name': common_name,
+        'has_up_services': has_up_services,  # Track if any services are UP
+        'ip_state_map': ip_state_map  # Map of IP -> state for individual checks
     }
 
 
@@ -1324,27 +1409,44 @@ def generate_elchi_templates(analysis_result, options):
                 
                 endpoint_template_vars['clustername'] = k8s_cluster_name
                 
-                # Check if THIS specific cluster's IPs exist in Kubernetes
-                cluster_has_k8s_match = False
+                # Separate Kubernetes and non-Kubernetes IPs
+                k8s_ips = set()
+                non_k8s_ips = set()
+                
                 if cluster_ips:
                     try:
                         from utils.cluster_resolver import get_cluster_resolver
                         resolver = get_cluster_resolver(use_cache_only=True)
                         
-                        # Check if any IP from this cluster exists in Kubernetes
+                        # Check each IP individually
                         for ip in cluster_ips:
                             cluster_names = resolver.get_cluster_names_for_ip(ip)
                             if cluster_names:
-                                cluster_has_k8s_match = True
-                                print(f"DEBUG: Cluster '{cluster_name_with_port}' IP {ip} found in K8s - using dynamic endpoint")
-                                break
-                        
-                        if not cluster_has_k8s_match:
-                            print(f"DEBUG: Cluster '{cluster_name_with_port}' IPs {list(cluster_ips)} not in K8s - using static endpoint")
+                                k8s_ips.add(ip)
+                                print(f"DEBUG: IP {ip} found in Kubernetes cluster")
+                            else:
+                                non_k8s_ips.add(ip)
+                                print(f"DEBUG: IP {ip} NOT found in Kubernetes, adding to non-K8s set")
                     except Exception as e:
                         print(f"DEBUG: Error checking K8s for cluster '{cluster_name_with_port}': {e}")
-                        cluster_has_k8s_match = False
-                endpoint_template_file = 'bodies/endpoint.j2' if cluster_has_k8s_match else 'bodies/endpoint_static.j2'
+                        # If error, add all IPs as non-K8s (assume UP state)
+                        non_k8s_ips = cluster_ips
+                
+                # Determine template type based on what we have
+                has_k8s_ips = len(k8s_ips) > 0
+                has_non_k8s_ips = len(non_k8s_ips) > 0
+                
+                if has_k8s_ips and has_non_k8s_ips:
+                    endpoint_template_file = 'bodies/endpoint_hybrid.j2'
+                    print(f"DEBUG: Using hybrid endpoint - K8s IPs: {k8s_ips}, Non-K8s IPs: {non_k8s_ips}")
+                elif has_k8s_ips:
+                    endpoint_template_file = 'bodies/endpoint.j2'
+                    print(f"DEBUG: Using dynamic endpoint - K8s IPs: {k8s_ips}")
+                else:
+                    endpoint_template_file = 'bodies/endpoint_static.j2'
+                    print(f"DEBUG: Using static endpoint - Non-K8s IPs: {non_k8s_ips}")
+                    
+                cluster_has_k8s_match = has_k8s_ips
                 
                 try:
                     with open(endpoint_template_file, 'r') as f:
@@ -1354,8 +1456,65 @@ def generate_elchi_templates(analysis_result, options):
                     for var_name, var_value in endpoint_template_vars.items():
                         endpoint_template_content = endpoint_template_content.replace(f'{{{{{var_name}}}}}', str(var_value))
                     
-                    # Handle static endpoints if needed
-                    if not cluster_has_k8s_match and cluster_ips:
+                    # Handle different endpoint template types
+                    if endpoint_template_file == 'bodies/endpoint_hybrid.j2':
+                        # Hybrid template: both elchi_discovery and static endpoints
+                        # Generate elchi_discovery array
+                        if has_k8s_ips:
+                            elchi_discovery = [{
+                                "cluster_name": k8s_cluster_name,
+                                "protocol": "TCP", 
+                                "port": cluster_port,
+                                "address_type": "ipv4",
+                                "roles": ["worker"]
+                            }]
+                        else:
+                            elchi_discovery = []
+                            
+                        elchi_discovery_json = json.dumps(elchi_discovery, indent=8)
+                        endpoint_template_content = endpoint_template_content.replace('{{elchi_discovery_array}}', elchi_discovery_json)
+                        
+                        # Generate static endpoints array for non-K8s IPs only
+                        # Filter by UP state only in hybrid mode
+                        if has_non_k8s_ips:
+                            # Filter non-K8s IPs by UP state for hybrid endpoint
+                            up_non_k8s_ips = []
+                            for ip in non_k8s_ips:
+                                if check_ip_has_up_state(cluster_info, ip):
+                                    up_non_k8s_ips.append(ip)
+                                    print(f"DEBUG: Non-K8s IP {ip} has UP state, adding to hybrid static endpoints")
+                                else:
+                                    print(f"DEBUG: Non-K8s IP {ip} has DOWN state, skipping in hybrid endpoint")
+                            
+                            ip_ports = [f"{ip}:{cluster_port}" for ip in up_non_k8s_ips]
+                            endpoints_json_parts = []
+                            
+                            for ip_port in ip_ports:
+                                ip, port = ip_port.split(':')
+                                endpoint_json = {
+                                    "endpoint": {
+                                        "address": {
+                                            "socket_address": {
+                                                "protocol": "TCP",
+                                                "address": ip,
+                                                "port_value": int(port)
+                                            }
+                                        }
+                                    }
+                                }
+                                endpoint_str = json.dumps(endpoint_json, indent=4)
+                                indented_endpoint = '\n'.join('                        ' + line if line.strip() else line 
+                                                             for line in endpoint_str.split('\n'))
+                                endpoints_json_parts.append(indented_endpoint.strip())
+                            
+                            static_endpoints = ',\n                        '.join(endpoints_json_parts)
+                        else:
+                            static_endpoints = ""
+                            
+                        endpoint_template_content = endpoint_template_content.replace('{{static_endpoints_array}}', static_endpoints)
+                        
+                    elif not cluster_has_k8s_match and cluster_ips:
+                        # Pure static endpoint template
                         ip_ports = [f"{ip}:{cluster_port}" for ip in cluster_ips]
                         endpoints_json_parts = []
                         
