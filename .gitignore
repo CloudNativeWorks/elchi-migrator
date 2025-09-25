@@ -129,3 +129,5 @@ cython_debug/
 # OS files
 .DS_Store
 Thumbs.db
+
+config/vserver_completion.json
