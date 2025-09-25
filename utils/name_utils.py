@@ -16,6 +16,10 @@ def clean_name(name, text_replace_from=None, text_replace_to=''):
     if not name:
         return name
     
+    # Handle wildcard domains specially
+    if name == '*':
+        return 'star'
+    
     # Apply text replacement if provided (from UI input)
     if text_replace_from:
         text_replace_from = text_replace_from.strip()

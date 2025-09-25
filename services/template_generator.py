@@ -297,8 +297,19 @@ def generate_cs_virtual_hosts_new(analysis_result, template_clustername, templat
         print(f"DEBUG: Grouped policies into {len(domain_policies)} domains: {list(domain_policies.keys())}")
     
     # Generate one virtual host per domain
+    used_vhost_names = set()
     for domain, policies in domain_policies.items():
-        vhost_name = f"{clean_name(domain, text_replace_from, text_replace_to)}_vhost"
+        base_name = clean_name(domain, text_replace_from, text_replace_to)
+        vhost_name = f"{base_name}_vhost"
+        
+        # Handle duplicate vhost names (especially for wildcard domains)
+        if vhost_name in used_vhost_names:
+            counter = 1
+            while f"{base_name}_{counter:02d}_vhost" in used_vhost_names:
+                counter += 1
+            vhost_name = f"{base_name}_{counter:02d}_vhost"
+        
+        used_vhost_names.add(vhost_name)
         routes = []
         
         # Process each policy in priority order to create routes
