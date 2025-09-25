@@ -20,6 +20,17 @@
         <span>CS: <strong id="csCount">0</strong></span>
     </div>
     
+    <!-- Search Box -->
+    <div class="search-container" id="searchContainer" style="display: none;">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by name, IP, domain, port..." class="form-control">
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="search-stats">
+            <span id="searchResults" style="display: none;"></span>
+        </div>
+    </div>
+    
     <!-- Tabs -->
     <div class="tabs" id="tabsContainer" style="display: none;">
         <button class="tab-button active" data-tab="lb">LB Virtual Servers (<span id="lbTabCount">0</span>)</button>
@@ -73,10 +84,57 @@
 </div>
 
 <style>
+.search-container {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.search-box {
+    position: relative;
+    max-width: 500px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    border: 2px solid #e1e4e8;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.search-icon {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+}
+
+.search-stats {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.search-stats span {
+    background: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    border: 1px solid #e1e4e8;
+}
+
 .tabs {
     display: flex;
     border-bottom: 2px solid #ddd;
-    margin-top: 1rem;
+    margin-top: 0;
     margin-bottom: 0;
 }
 
@@ -272,6 +330,10 @@ async function loadVServers(forceRefresh = false) {
             mergeStatsWithVServers(lbVservers);
             mergeStatsWithVServers(csVservers);
             
+            // Initialize filtered arrays with all vservers
+            filteredLbVservers = [...lbVservers];
+            filteredCsVservers = [...csVservers];
+            
             displayLBVServers(lbVservers);
             displayCSVServers(csVservers);
             updateStats(lbVservers, csVservers);
@@ -279,6 +341,7 @@ async function loadVServers(forceRefresh = false) {
             loading.style.display = 'none';
             tabsContainer.style.display = 'flex';
             stats.style.display = 'flex';
+            document.getElementById('searchContainer').style.display = 'block';
             
             // Show LB tab by default
             showTab('lb');
@@ -552,7 +615,93 @@ function formatDomains(domains) {
 }
 
 // Tab switching and sort handlers
+// Search functionality
+let filteredLbVservers = [];
+let filteredCsVservers = [];
+
+function performSearch() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    const searchResults = document.getElementById('searchResults');
+    
+    if (searchTerm === '') {
+        // Show all vservers
+        filteredLbVservers = [...lbVservers];
+        filteredCsVservers = [...csVservers];
+        searchResults.style.display = 'none';
+    } else {
+        // Filter LB vservers
+        filteredLbVservers = lbVservers.filter(vserver => {
+            // Search in name
+            if (vserver.name && vserver.name.toLowerCase().includes(searchTerm)) return true;
+            // Search in IP
+            if (vserver.ip && vserver.ip.toLowerCase().includes(searchTerm)) return true;
+            // Search in port
+            if (vserver.port && vserver.port.toString().includes(searchTerm)) return true;
+            // Search in protocol
+            if (vserver.protocol && vserver.protocol.toLowerCase().includes(searchTerm)) return true;
+            // Search in domains
+            if (vserver.domains && vserver.domains.some(domain => 
+                domain.toLowerCase().includes(searchTerm))) return true;
+            // Search in state
+            if (vserver.state && vserver.state.toLowerCase().includes(searchTerm)) return true;
+            
+            return false;
+        });
+        
+        // Filter CS vservers
+        filteredCsVservers = csVservers.filter(vserver => {
+            // Search in name
+            if (vserver.name && vserver.name.toLowerCase().includes(searchTerm)) return true;
+            // Search in IP
+            if (vserver.ip && vserver.ip.toLowerCase().includes(searchTerm)) return true;
+            // Search in port
+            if (vserver.port && vserver.port.toString().includes(searchTerm)) return true;
+            // Search in protocol
+            if (vserver.protocol && vserver.protocol.toLowerCase().includes(searchTerm)) return true;
+            // Search in domains
+            if (vserver.domains && vserver.domains.some(domain => 
+                domain.toLowerCase().includes(searchTerm))) return true;
+            // Search in state
+            if (vserver.state && vserver.state.toLowerCase().includes(searchTerm)) return true;
+            
+            return false;
+        });
+        
+        // Update search results count
+        const totalResults = filteredLbVservers.length + filteredCsVservers.length;
+        searchResults.textContent = `Found ${totalResults} results (LB: ${filteredLbVservers.length}, CS: ${filteredCsVservers.length})`;
+        searchResults.style.display = 'inline-block';
+    }
+    
+    // Update displays
+    displayLBVServers(filteredLbVservers);
+    displayCSVServers(filteredCsVservers);
+    
+    // Update tab counts
+    document.getElementById('lbTabCount').textContent = filteredLbVservers.length;
+    document.getElementById('csTabCount').textContent = filteredCsVservers.length;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Add search input handler
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        // Search on input with debounce
+        let searchTimeout;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+        
+        // Clear search on Escape key
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                performSearch();
+            }
+        });
+    }
+    
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
             showTab(button.dataset.tab);
