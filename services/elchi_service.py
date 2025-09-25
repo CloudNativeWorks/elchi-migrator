@@ -251,23 +251,26 @@ def get_tls_contexts(version="v1.35.3"):
             'search': ''
         }
         
-        # Set authorization header using client's token
-        headers = {'Authorization': f'Bearer {client.token}'}
-        
+        # Don't override headers, session already has authorization
         print(f"DEBUG: TLS Context API URL: {api_url}")
         print(f"DEBUG: TLS Context API Params: {params}")
+        print(f"DEBUG: Session headers: {dict(client.session.headers)}")
         
-        response = client.session.get(api_url, params=params, headers=headers, timeout=30)
+        response = client.session.get(api_url, params=params, timeout=30)
         
         print(f"DEBUG: TLS Context API Response: Status={response.status_code}")
         print(f"DEBUG: TLS Context API Response Text: {response.text[:500]}...")
         
-        if response.status_code == 200:
+        if response.status_code == 401:
+            # Authentication failed - clear session and return error
+            return {'error': 'Authentication failed - please login again'}, 401
+        elif response.status_code == 200:
             tls_contexts = response.json()
             print(f"DEBUG: TLS Contexts received: {len(tls_contexts) if isinstance(tls_contexts, list) else 'Not a list'}")
             return {'tls_contexts': tls_contexts}, 200
         else:
-            return {'error': f'Failed to fetch TLS contexts: {response.status_code}'}, response.status_code
+            error_msg = response.text[:500] if response.text else f'Status: {response.status_code}'
+            return {'error': f'Failed to fetch TLS contexts: {error_msg}'}, response.status_code
             
     except Exception as e:
         print(f"Error fetching TLS contexts: {e}")
