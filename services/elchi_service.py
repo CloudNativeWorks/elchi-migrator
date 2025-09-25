@@ -51,7 +51,8 @@ def create_elchi_client():
         
         # Set token expiry from session or default
         if 'elchi_token_expiry' in session:
-            client.token_expiry = datetime.fromisoformat(session['elchi_token_expiry'])
+            # Use strptime for compatibility with older Python versions
+            client.token_expiry = datetime.strptime(session['elchi_token_expiry'], '%Y-%m-%dT%H:%M:%S.%f')
         else:
             client.token_expiry = datetime.now() + timedelta(hours=24)
         
@@ -99,13 +100,15 @@ def elchi_login(host, username, password):
                     if 'exp' in payload:
                         expiry_timestamp = payload['exp']
                         expiry_datetime = datetime.fromtimestamp(expiry_timestamp)
-                        session['elchi_token_expiry'] = expiry_datetime.isoformat()
+                        # Use strftime for compatibility with older Python versions
+                        session['elchi_token_expiry'] = expiry_datetime.strftime('%Y-%m-%dT%H:%M:%S.%f')
                         if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
                             print(f"DEBUG: JWT token expires at: {expiry_datetime}")
                     else:
                         # Fallback if no exp claim
                         from datetime import timedelta
-                        session['elchi_token_expiry'] = (datetime.now() + timedelta(hours=24)).isoformat()
+                        # Use strftime for compatibility with older Python versions
+                        session['elchi_token_expiry'] = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%S.%f')
                         if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
                             print(f"DEBUG: No exp claim, using 24h default")
                 else:
@@ -116,7 +119,8 @@ def elchi_login(host, username, password):
                     print(f"DEBUG: Error parsing JWT token: {e}")
                 # Fallback to 24 hours
                 from datetime import datetime, timedelta
-                session['elchi_token_expiry'] = (datetime.now() + timedelta(hours=24)).isoformat()
+                # Use strftime for compatibility with older Python versions
+                session['elchi_token_expiry'] = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%S.%f')
             
             if os.environ.get('FLASK_DEBUG', '').lower() == 'true':
                 print(f"DEBUG: ELCHI login successful. Token: {client.token[:10]}...")
@@ -162,7 +166,8 @@ def get_elchi_status(version="v1.35.3"):
     if 'elchi_token_expiry' in session:
         try:
             from datetime import datetime
-            expiry_time = datetime.fromisoformat(session['elchi_token_expiry'])
+            # Use strptime for compatibility with older Python versions
+            expiry_time = datetime.strptime(session['elchi_token_expiry'], '%Y-%m-%dT%H:%M:%S.%f')
             current_time = datetime.now()
             
             if current_time >= expiry_time:

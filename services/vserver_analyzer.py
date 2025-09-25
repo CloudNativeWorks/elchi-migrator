@@ -279,10 +279,12 @@ def analyze_vserver(vserver_type, vserver_name):
         from datetime import datetime
         if 'netscaler_expiry' in session:
             try:
-                expiry_time = datetime.fromisoformat(session['netscaler_expiry'])
+                # Use strptime for compatibility with older Python versions
+                expiry_time = datetime.strptime(session['netscaler_expiry'], '%Y-%m-%dT%H:%M:%S.%f')
                 if datetime.now() >= expiry_time:
                     return {'error': 'NetScaler session expired. Please login again.'}, 401
-            except:
+            except Exception as e:
+                print(f"DEBUG: Error parsing NetScaler expiry: {e}")
                 pass
         
         # Initialize NetScaler client

@@ -21,7 +21,8 @@ def get_all_vservers(from_cache=True):
         from datetime import datetime
         if 'netscaler_expiry' in session:
             try:
-                expiry_time = datetime.fromisoformat(session['netscaler_expiry'])
+                # Use strptime for compatibility with older Python versions
+                expiry_time = datetime.strptime(session['netscaler_expiry'], '%Y-%m-%dT%H:%M:%S.%f')
                 if datetime.now() >= expiry_time:
                     return {'error': 'NetScaler session expired. Please login again.'}, 401
             except:
@@ -98,7 +99,8 @@ def get_vserver_completion_suggestions():
         from datetime import datetime
         if 'netscaler_expiry' in session:
             try:
-                expiry_time = datetime.fromisoformat(session['netscaler_expiry'])
+                # Use strptime for compatibility with older Python versions
+                expiry_time = datetime.strptime(session['netscaler_expiry'], '%Y-%m-%dT%H:%M:%S.%f')
                 if datetime.now() >= expiry_time:
                     return {'error': 'NetScaler session expired. Please login again.'}, 401
             except:
@@ -174,7 +176,8 @@ def netscaler_login(host, username, password):
             
             # Set session expiry to 1 hour from now
             expiry_time = datetime.now() + timedelta(hours=1)
-            session['netscaler_expiry'] = expiry_time.isoformat()
+            # Use strftime for compatibility with older Python versions
+            session['netscaler_expiry'] = expiry_time.strftime('%Y-%m-%dT%H:%M:%S.%f')
             
             print(f"DEBUG: NetScaler session will expire at: {expiry_time}")
             
