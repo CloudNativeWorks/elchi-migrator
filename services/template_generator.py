@@ -1377,7 +1377,8 @@ def generate_elchi_templates(analysis_result, options):
                 'name': rv.get('name', '')
             })
         response['related_vservers_for_completion'] = completion_related
-        print(f"DEBUG: Related vservers for completion: {[f\"{rv['type']}_{rv['name']}\" for rv in completion_related]}")
+        completion_names = [f"{rv['type']}_{rv['name']}" for rv in completion_related]
+        print(f"DEBUG: Related vservers for completion: {completion_names}")
         
         # For CS vservers, generate multiple cluster and endpoint templates
         if is_cs_vserver:
