@@ -8,6 +8,10 @@
         <h2>Virtual Servers</h2>
         <div class="actions">
             <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+            <div class="export-buttons" style="display: none;" id="exportButtons">
+                <button id="exportLbBtn" class="btn btn-outline-success">Export LB</button>
+                <button id="exportCsBtn" class="btn btn-outline-success">Export CS</button>
+            </div>
         </div>
     </div>
     
@@ -129,6 +133,27 @@
     padding: 0.25rem 0.75rem;
     border-radius: 4px;
     border: 1px solid #e1e4e8;
+}
+
+.header-actions .actions {
+    display: flex;
+    align-items: center;
+}
+
+#refreshBtn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.export-buttons {
+    display: inline-flex;
+    gap: 0.5rem;
+    margin-left: 1rem;
+}
+
+.export-buttons .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
 }
 
 .tabs {
@@ -342,6 +367,7 @@ async function loadVServers(forceRefresh = false) {
             tabsContainer.style.display = 'flex';
             stats.style.display = 'flex';
             document.getElementById('searchContainer').style.display = 'block';
+            document.getElementById('exportButtons').style.display = 'block';
             
             // Show LB tab by default
             showTab('lb');
@@ -614,6 +640,97 @@ function formatDomains(domains) {
     return `${firstTwo}<br><span class="domain-count">+${remaining} more</span>`;
 }
 
+// CSV Export functionality
+function exportToCSV(data, filename, type) {
+    // Define columns based on type
+    const lbColumns = [
+        { key: 'name', label: 'Name' },
+        { key: 'protocol', label: 'Protocol' },
+        { key: 'ip', label: 'IP Address' },
+        { key: 'port', label: 'Port' },
+        { key: 'state', label: 'State' },
+        { key: 'health', label: 'Health' },
+        { key: 'domains', label: 'Domains' },
+        { key: 'total_requests', label: 'Total Requests' }
+    ];
+    
+    const csColumns = [
+        { key: 'name', label: 'Name' },
+        { key: 'protocol', label: 'Protocol' },
+        { key: 'ip', label: 'IP Address' },
+        { key: 'port', label: 'Port' },
+        { key: 'state', label: 'State' },
+        { key: 'domains', label: 'Domains' },
+        { key: 'total_requests', label: 'Total Requests' },
+        { key: 'cs_policies_count', label: 'CS Policies Count' },
+        { key: 'default_lbvserver', label: 'Default LB VServer' }
+    ];
+    
+    const columns = type === 'LB' ? lbColumns : csColumns;
+    
+    // Create CSV header
+    const csvHeader = columns.map(col => col.label).join(',');
+    
+    // Create CSV rows
+    const csvRows = data.map(item => {
+        return columns.map(col => {
+            let value = item[col.key];
+            
+            // Handle special formatting
+            if (col.key === 'domains' && Array.isArray(value)) {
+                value = value.join('; ');
+            } else if (col.key === 'health') {
+                // Health field might be a string (like "100") or object {active: x, total: y}
+                if (typeof value === 'string' || typeof value === 'number') {
+                    value = String(value);
+                } else if (value && value.active !== undefined && value.total !== undefined) {
+                    value = `${value.active}/${value.total}`;
+                } else {
+                    value = '';
+                }
+            } else if (value === undefined || value === null) {
+                value = '';
+            }
+            
+            // Escape CSV values
+            value = String(value).replace(/"/g, '""');
+            if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+                value = `"${value}"`;
+            }
+            
+            return value;
+        }).join(',');
+    });
+    
+    // Combine header and rows
+    const csvContent = [csvHeader, ...csvRows].join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function exportLBToCSV() {
+    const dataToExport = filteredLbVservers.length > 0 ? filteredLbVservers : lbVservers;
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `lb_vservers_${timestamp}.csv`;
+    exportToCSV(dataToExport, filename, 'LB');
+}
+
+function exportCSToCSV() {
+    const dataToExport = filteredCsVservers.length > 0 ? filteredCsVservers : csVservers;
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `cs_vservers_${timestamp}.csv`;
+    exportToCSV(dataToExport, filename, 'CS');
+}
+
 // Tab switching and sort handlers
 // Search functionality
 let filteredLbVservers = [];
@@ -701,6 +818,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Add export button handlers
+    document.getElementById('exportLbBtn').addEventListener('click', exportLBToCSV);
+    document.getElementById('exportCsBtn').addEventListener('click', exportCSToCSV);
     
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {

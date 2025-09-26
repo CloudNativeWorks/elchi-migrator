@@ -1368,6 +1368,17 @@ def generate_elchi_templates(analysis_result, options):
             }
         }
         
+        # Add related vservers from analysis (same IP, different protocol) for completion tracking
+        related_vservers = analysis_result.get('related_vservers', [])
+        completion_related = []
+        for rv in related_vservers:
+            completion_related.append({
+                'type': rv.get('type', '').lower(),  # cs, lb
+                'name': rv.get('name', '')
+            })
+        response['related_vservers_for_completion'] = completion_related
+        print(f"DEBUG: Related vservers for completion: {[f\"{rv['type']}_{rv['name']}\" for rv in completion_related]}")
+        
         # For CS vservers, generate multiple cluster and endpoint templates
         if is_cs_vserver:
             unique_clusters = get_cs_unique_clusters_and_endpoints(analysis_result, text_replace_from, text_replace_to)

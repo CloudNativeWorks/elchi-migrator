@@ -2335,7 +2335,8 @@ async function sendToElchi() {
                     version: generatedTemplatesData.version,
                     ignore_duplicate: ignoreDuplicate,
                     vserver_name: '{{ vserver_name }}',
-                    vserver_type: '{{ vserver_type }}'
+                    vserver_type: '{{ vserver_type }}',
+                    related_vservers: generatedTemplatesData.related_vservers_for_completion || []
                 })
             })
         );

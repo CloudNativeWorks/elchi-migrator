@@ -334,6 +334,7 @@ def api_send_templates_to_elchi():
             # Extract vserver info from request data
             vserver_name = data.get('vserver_name')
             vserver_type = data.get('vserver_type')
+            related_vservers = data.get('related_vservers', [])  # Get related vservers from template generation
             
             if vserver_name and vserver_type:
                 # Check if any template was successfully sent
@@ -344,8 +345,17 @@ def api_send_templates_to_elchi():
                 )
                 
                 if has_successful_template:
+                    # Mark primary vserver as completed
                     print(f"DEBUG: Auto-marking {vserver_type}_{vserver_name} as completed")
                     auto_mark_vserver_completed(vserver_type, vserver_name)
+                    
+                    # Mark related vservers as completed too
+                    for related_vserver in related_vservers:
+                        related_type = related_vserver.get('type')
+                        related_name = related_vserver.get('name')
+                        if related_type and related_name:
+                            print(f"DEBUG: Auto-marking related {related_type}_{related_name} as completed")
+                            auto_mark_vserver_completed(related_type, related_name)
                 
         except Exception as e:
             print(f"DEBUG: Error auto-marking completion: {e}")
